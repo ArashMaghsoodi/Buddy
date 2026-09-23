@@ -1,0 +1,46 @@
+{
+  "name": "buddy",
+  "version": "0.1.0",
+  "description": "Buddy — a personal AI screen companion that sees and understands whatever is on your screen.",
+  "main": "./out/main/index.js",
+  "author": "You",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:win": "electron-vite build && electron-builder --win",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "nanoid": "^5.0.7",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^30.0.1",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.4.3",
+    "vite": "^5.2.6"
+  },
+  "build": {
+    "appId": "com.buddy.app",
+    "productName": "Buddy",
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "out/**/*"
+    ]
+  }
+}
