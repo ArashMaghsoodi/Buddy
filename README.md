@@ -81,8 +81,12 @@ src/
 ## What's implemented (MVP) vs. what's next
 
 **Implemented:**
-- Electron app with polished dark UI, main window + floating companion
-- Global hotkeys (configurable)
+- Electron app with polished dark UI, main (maximized) window + a dual-mode
+  floating companion: an always-on-top FAB that expands into a compact chat
+  overlay and collapses back with one click. Both share the same
+  conversation history/state (same local store, live-synced over IPC).
+- Global hotkeys (configurable), with a click-to-record hotkey field in
+  Settings (live key capture, confirm with ✓, cancel with Esc)
 - Full-screen and active-window capture (multi-monitor aware via Electron's
   `screen` module)
 - Provider-agnostic vision chat (OpenAI, Anthropic, Google Gemini, and any

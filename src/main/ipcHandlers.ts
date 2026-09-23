@@ -16,7 +16,17 @@ import { contextManager } from './contextManager'
 import { captureScreen } from './screenCapture'
 import { getProvider, SYSTEM_PROMPT } from './providers'
 import { ProviderError } from './providers/types'
-import { getMainWindow, getCompanionWindow, setCompanionAlwaysOnTop, toggleCompanion } from './windows'
+import {
+  getMainWindow,
+  getCompanionWindow,
+  setCompanionAlwaysOnTop,
+  toggleCompanionMode,
+  expandCompanion,
+  collapseCompanion,
+  hideCompanionWindow,
+  getCompanionMode
+} from './windows'
+import { registerHotkeys } from './hotkeys'
 
 function broadcastStatus(status: string): void {
   for (const win of [getMainWindow(), getCompanionWindow()]) {
@@ -36,6 +46,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:save', (_e, settings) => {
     const saved = saveSettings(settings)
     setCompanionAlwaysOnTop(saved.appearance.companionAlwaysOnTop)
+    registerHotkeys(saved)
     return saved
   })
 
@@ -56,12 +67,18 @@ export function registerIpcHandlers(): void {
 
   // ---- Companion window control ----
   ipcMain.handle('companion:toggle', () => {
-    const settings = getSettings()
-    toggleCompanion(settings.appearance.companionAlwaysOnTop)
+    toggleCompanionMode()
+  })
+  ipcMain.handle('companion:expand', () => {
+    expandCompanion()
+  })
+  ipcMain.handle('companion:collapse', () => {
+    collapseCompanion()
   })
   ipcMain.handle('companion:hide', () => {
-    getCompanionWindow()?.hide()
+    hideCompanionWindow()
   })
+  ipcMain.handle('companion:get-mode', () => getCompanionMode())
 
   // ---- Core ask/analyze flow ----
   ipcMain.handle('buddy:ask', async (event, payload: AskPayload) => {

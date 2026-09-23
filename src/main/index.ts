@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron'
-import { createMainWindow, createCompanionWindow, toggleCompanion, getCompanionWindow } from './windows'
+import { createMainWindow, createCompanionWindow, showCompanionFabQuietly, toggleCompanionMode } from './windows'
 import { registerHotkeys, unregisterHotkeys } from './hotkeys'
 import { registerIpcHandlers } from './ipcHandlers'
 import { getSettings } from './store'
@@ -15,13 +15,7 @@ function createTray(): void {
   tray.setToolTip('Buddy — your screen companion')
   const menu = Menu.buildFromTemplate([
     { label: 'Open Buddy', click: () => createMainWindow() },
-    {
-      label: 'Toggle companion',
-      click: () => {
-        const settings = getSettings()
-        toggleCompanion(settings.appearance.companionAlwaysOnTop)
-      }
-    },
+    { label: 'Toggle companion', click: () => toggleCompanionMode() },
     { type: 'separator' },
     { label: 'Quit Buddy', role: 'quit' }
   ])
@@ -38,20 +32,16 @@ function bootstrap(): void {
   registerIpcHandlers()
 
   createMainWindow()
+
   const settings = getSettings()
+  // The companion window is created and shown immediately as a small,
+  // always-on-top floating action button — it's the primary everyday
+  // entry point, not something the user has to summon first. It never
+  // steals focus on startup.
   createCompanionWindow(settings.appearance.companionAlwaysOnTop)
-  getCompanionWindow()?.once('ready-to-show', () => {
-    // Companion starts hidden — it appears on hotkey or explicit toggle,
-    // per "do not continuously capture/upload" + "unobtrusive" requirements.
-  })
+  showCompanionFabQuietly()
 
-  registerHotkeys(settings, () => {
-    // Handled inside the companion renderer via an IPC status stream; the
-    // renderer triggers the actual ask() call with captureScreen: true once
-    // it receives focus, so the newest screen state is what gets captured.
-    getCompanionWindow()?.webContents.send('buddy:trigger-analyze')
-  })
-
+  registerHotkeys(settings)
   createTray()
 }
 

@@ -1,9 +1,11 @@
 import { BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
 import { is } from './utils'
+import { getSettings } from './store'
 
 let mainWindow: BrowserWindow | null = null
 let companionWindow: BrowserWindow | null = null
+let companionMode: 'fab' | 'overlay' = 'fab'
 
 const preloadPath = join(__dirname, '../preload/index.js')
 const rendererDevServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -14,6 +16,10 @@ export function getMainWindow(): BrowserWindow | null {
 
 export function getCompanionWindow(): BrowserWindow | null {
   return companionWindow
+}
+
+export function getCompanionMode(): 'fab' | 'overlay' {
+  return companionMode
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -57,32 +63,55 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-const COMPANION_WIDTH = 380
-const COMPANION_HEIGHT = 460
+// ---- Floating companion: a single window with two states ----
+//
+// Rather than two separate windows, the companion is one frameless,
+// transparent, always-on-top window that we resize/reposition between a
+// small circular FAB (the default, always-visible, "primary everyday
+// interaction" state) and a compact chat overlay. This keeps a single
+// source of truth for window state and means the renderer never has to
+// coordinate handoff between windows — it just re-renders based on the
+// current mode, pushed over IPC.
+
+const FAB_SIZE = 60
+const OVERLAY_WIDTH = 380
+const OVERLAY_HEIGHT = 520
+const EDGE_MARGIN = 24
+
+function anchorBottomRight(win: BrowserWindow, width: number, height: number): void {
+  const display = screen.getPrimaryDisplay()
+  const { workArea } = display
+  win.setBounds({
+    x: Math.round(workArea.x + workArea.width - width - EDGE_MARGIN),
+    y: Math.round(workArea.y + workArea.height - height - EDGE_MARGIN),
+    width,
+    height
+  })
+}
 
 export function createCompanionWindow(alwaysOnTop: boolean): BrowserWindow {
   if (companionWindow && !companionWindow.isDestroyed()) {
-    showCompanion()
     return companionWindow
   }
 
   const display = screen.getPrimaryDisplay()
-  const { width: sw, height: sh } = display.workArea
+  const { workArea } = display
 
   companionWindow = new BrowserWindow({
-    width: COMPANION_WIDTH,
-    height: COMPANION_HEIGHT,
-    x: display.workArea.x + sw - COMPANION_WIDTH - 24,
-    y: display.workArea.y + sh - COMPANION_HEIGHT - 24,
-    minWidth: 300,
-    minHeight: 200,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    x: Math.round(workArea.x + workArea.width - FAB_SIZE - EDGE_MARGIN),
+    y: Math.round(workArea.y + workArea.height - FAB_SIZE - EDGE_MARGIN),
+    minWidth: FAB_SIZE,
+    minHeight: FAB_SIZE,
     frame: false,
     transparent: true,
-    resizable: true,
+    resizable: false,
+    movable: true,
     show: false,
     alwaysOnTop,
     skipTaskbar: true,
-    hasShadow: true,
+    hasShadow: false,
     webPreferences: {
       preload: preloadPath,
       sandbox: false,
@@ -91,11 +120,8 @@ export function createCompanionWindow(alwaysOnTop: boolean): BrowserWindow {
     }
   })
 
+  companionMode = 'fab'
   companionWindow.on('closed', () => (companionWindow = null))
-  companionWindow.on('blur', () => {
-    // Keep it around but let the user dismiss with Escape from the renderer;
-    // we don't auto-hide on blur since that fights with quick alt-tabbing.
-  })
 
   if (is.dev && rendererDevServerUrl) {
     companionWindow.loadURL(`${rendererDevServerUrl}/companion.html`)
@@ -106,24 +132,57 @@ export function createCompanionWindow(alwaysOnTop: boolean): BrowserWindow {
   return companionWindow
 }
 
-export function showCompanion(): void {
-  if (!companionWindow || companionWindow.isDestroyed()) return
-  companionWindow.show()
-  companionWindow.focus()
+function ensureCompanionWindow(): BrowserWindow {
+  if (!companionWindow || companionWindow.isDestroyed()) {
+    const alwaysOnTop = getSettings().appearance.companionAlwaysOnTop
+    return createCompanionWindow(alwaysOnTop)
+  }
+  return companionWindow
 }
 
-export function toggleCompanion(alwaysOnTop: boolean): void {
-  if (!companionWindow || companionWindow.isDestroyed()) {
-    createCompanionWindow(alwaysOnTop)
-    // give it a tick to load before showing focus request from renderer
-    companionWindow?.once('ready-to-show', () => showCompanion())
-    return
-  }
-  if (companionWindow.isVisible()) {
-    companionWindow.hide()
+/** Resize/reposition the companion window for the given mode and notify the renderer. */
+function applyCompanionMode(mode: 'fab' | 'overlay'): void {
+  const win = ensureCompanionWindow()
+  companionMode = mode
+  if (mode === 'fab') {
+    win.setResizable(false)
+    win.setHasShadow(false)
+    anchorBottomRight(win, FAB_SIZE, FAB_SIZE)
   } else {
-    showCompanion()
+    win.setResizable(true)
+    win.setHasShadow(true)
+    anchorBottomRight(win, OVERLAY_WIDTH, OVERLAY_HEIGHT)
   }
+  win.webContents.send('buddy:companion-mode', mode)
+}
+
+/** Show the FAB at startup without stealing focus from whatever the user is doing. */
+export function showCompanionFabQuietly(): void {
+  const win = ensureCompanionWindow()
+  applyCompanionMode('fab')
+  win.showInactive()
+}
+
+export function expandCompanion(): void {
+  const win = ensureCompanionWindow()
+  applyCompanionMode('overlay')
+  win.show()
+  win.focus()
+}
+
+export function collapseCompanion(): void {
+  const win = ensureCompanionWindow()
+  applyCompanionMode('fab')
+  win.show()
+}
+
+export function toggleCompanionMode(): void {
+  if (companionMode === 'fab') expandCompanion()
+  else collapseCompanion()
+}
+
+export function hideCompanionWindow(): void {
+  companionWindow?.hide()
 }
 
 export function setCompanionAlwaysOnTop(alwaysOnTop: boolean): void {

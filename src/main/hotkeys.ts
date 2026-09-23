@@ -1,27 +1,25 @@
 import { globalShortcut } from 'electron'
 import type { AppSettings } from '@shared/types'
-import { toggleCompanion, getCompanionWindow, createCompanionWindow, showCompanion } from './windows'
+import { toggleCompanionMode, expandCompanion, getCompanionWindow } from './windows'
 
 let registered: string[] = []
 
-export function registerHotkeys(
-  settings: AppSettings,
-  onAnalyzeScreen: () => void
-): void {
+/**
+ * Registers global hotkeys from the current settings. Safe to call again
+ * any time settings change (e.g. right after the user records a new
+ * hotkey in Settings) — it always unregisters the previous set first.
+ */
+export function registerHotkeys(settings: AppSettings): void {
   unregisterHotkeys()
 
   const openOk = globalShortcut.register(settings.general.hotkeyOpenCompanion, () => {
-    toggleCompanion(settings.appearance.companionAlwaysOnTop)
+    toggleCompanionMode()
   })
   if (openOk) registered.push(settings.general.hotkeyOpenCompanion)
 
   const analyzeOk = globalShortcut.register(settings.general.hotkeyAnalyzeScreen, () => {
-    const win = getCompanionWindow()
-    if (!win || win.isDestroyed()) {
-      createCompanionWindow(settings.appearance.companionAlwaysOnTop)
-    }
-    showCompanion()
-    onAnalyzeScreen()
+    expandCompanion()
+    getCompanionWindow()?.webContents.send('buddy:trigger-analyze')
   })
   if (analyzeOk) registered.push(settings.general.hotkeyAnalyzeScreen)
 

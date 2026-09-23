@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AppSettings, ProviderId } from '@shared/types'
 import { useBuddyStore } from '../state/store'
+import HotkeyRecorder from './HotkeyRecorder'
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }): JSX.Element {
   return (
@@ -48,11 +49,10 @@ export default function SettingsPanel(): JSX.Element | null {
             <div className="label">Open companion hotkey</div>
             <div className="desc">Global shortcut, works even when Buddy isn't focused</div>
           </div>
-          <input
-            type="text"
+          <HotkeyRecorder
             value={local.general.hotkeyOpenCompanion}
-            onChange={(e) =>
-              update({ ...local, general: { ...local.general, hotkeyOpenCompanion: e.target.value } })
+            onChange={(next) =>
+              update({ ...local, general: { ...local.general, hotkeyOpenCompanion: next } })
             }
           />
         </div>
@@ -61,11 +61,10 @@ export default function SettingsPanel(): JSX.Element | null {
             <div className="label">Analyze screen hotkey</div>
             <div className="desc">Captures the screen and opens the companion</div>
           </div>
-          <input
-            type="text"
+          <HotkeyRecorder
             value={local.general.hotkeyAnalyzeScreen}
-            onChange={(e) =>
-              update({ ...local, general: { ...local.general, hotkeyAnalyzeScreen: e.target.value } })
+            onChange={(next) =>
+              update({ ...local, general: { ...local.general, hotkeyAnalyzeScreen: next } })
             }
           />
         </div>

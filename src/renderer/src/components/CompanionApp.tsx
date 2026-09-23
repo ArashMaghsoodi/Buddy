@@ -3,6 +3,8 @@ import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
 import MessageBubble from './MessageBubble'
 
+type CompanionMode = 'fab' | 'overlay'
+
 const STATUS_LABEL: Record<string, string> = {
   idle: '',
   capturing: 'Capturing…',
@@ -20,6 +22,7 @@ export default function CompanionApp(): JSX.Element {
   const activeConversationId = useBuddyStore((s) => s.activeConversationId)
   const ask = useBuddyStore((s) => s.ask)
   const newConversation = useBuddyStore((s) => s.newConversation)
+  const [mode, setMode] = useState<CompanionMode>('fab')
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -29,15 +32,23 @@ export default function CompanionApp(): JSX.Element {
 
   useEffect(() => {
     loadInitial()
+    buddy()
+      .companion.getMode()
+      .then(setMode)
+      .catch(() => {})
   }, [loadInitial])
 
   useEffect(() => {
-    inputRef.current?.focus()
-    const off = buddy().onTriggerAnalyze(async () => {
-      // Hotkey-triggered analysis: start a fresh visual read of the current
-      // screen. We don't send a canned question — instead we prefill and
-      // focus the input so the user can immediately type or just hit Enter
-      // for a default "what am I looking at?" read.
+    const off = buddy().companion.onModeChange((m) => setMode(m))
+    return off
+  }, [])
+
+  useEffect(() => {
+    if (mode === 'overlay') inputRef.current?.focus()
+  }, [mode])
+
+  useEffect(() => {
+    const off = buddy().onTriggerAnalyze(() => {
       inputRef.current?.focus()
     })
     return off
@@ -45,11 +56,11 @@ export default function CompanionApp(): JSX.Element {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') buddy().companion.hide()
+      if (e.key === 'Escape' && mode === 'overlay') buddy().companion.collapse()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -63,19 +74,37 @@ export default function CompanionApp(): JSX.Element {
     await ask(q, captureScreen)
   }
 
-  if (loading) return <div className="companion-root" />
+  if (loading) return <div />
 
+  // ---- Collapsed state: a small, unobtrusive floating action button ----
+  if (mode === 'fab') {
+    return (
+      <button
+        className={`fab-button ${busy ? 'busy' : ''}`}
+        onClick={() => buddy().companion.expand()}
+        title="Ask Buddy about your screen"
+      >
+        👁
+      </button>
+    )
+  }
+
+  // ---- Expanded state: compact chat overlay ----
   return (
     <div className="companion-root">
       <div className="companion-header">
         <div className="title">
-          👁 Buddy {STATUS_LABEL[status] && <span style={{ color: 'var(--accent-text)' }}>· {STATUS_LABEL[status]}</span>}
+          👁 Buddy{' '}
+          {STATUS_LABEL[status] && <span style={{ color: 'var(--accent-text)' }}>· {STATUS_LABEL[status]}</span>}
         </div>
         <div className="actions">
           <button className="icon-btn" title="New chat" onClick={() => newConversation()}>
             ＋
           </button>
-          <button className="icon-btn" title="Close (Esc)" onClick={() => buddy().companion.hide()}>
+          <button className="icon-btn" title="Collapse to floating button" onClick={() => buddy().companion.collapse()}>
+            –
+          </button>
+          <button className="icon-btn" title="Dismiss" onClick={() => buddy().companion.hide()}>
             ✕
           </button>
         </div>

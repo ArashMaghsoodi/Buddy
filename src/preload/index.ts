@@ -19,7 +19,15 @@ const api = {
   },
   companion: {
     toggle: (): Promise<void> => ipcRenderer.invoke('companion:toggle'),
-    hide: (): Promise<void> => ipcRenderer.invoke('companion:hide')
+    expand: (): Promise<void> => ipcRenderer.invoke('companion:expand'),
+    collapse: (): Promise<void> => ipcRenderer.invoke('companion:collapse'),
+    hide: (): Promise<void> => ipcRenderer.invoke('companion:hide'),
+    getMode: (): Promise<'fab' | 'overlay'> => ipcRenderer.invoke('companion:get-mode'),
+    onModeChange: (cb: (mode: 'fab' | 'overlay') => void) => {
+      const listener = (_e: unknown, mode: 'fab' | 'overlay') => cb(mode)
+      ipcRenderer.on('buddy:companion-mode', listener)
+      return () => ipcRenderer.removeListener('buddy:companion-mode', listener)
+    }
   },
   ask: (payload: AskPayload) => ipcRenderer.invoke('buddy:ask', payload),
   onStatus: (cb: (status: string) => void) => {
