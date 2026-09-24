@@ -394,6 +394,82 @@ textarea {
   margin-bottom: 8px;
   display: block;
 }
+.msg-image-preview {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-0);
+  cursor: zoom-in;
+}
+.msg-image-preview .msg-thumb {
+  transition: filter 0.15s ease;
+}
+.msg-image-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 22px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.msg-image-preview:hover .msg-image-overlay,
+.msg-image-preview:focus-visible .msg-image-overlay {
+  opacity: 1;
+}
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+.image-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.84);
+  cursor: zoom-out;
+}
+.image-lightbox-content {
+  position: relative;
+  z-index: 1;
+  max-width: 94vw;
+  max-height: 94vh;
+}
+.image-lightbox-content img {
+  display: block;
+  max-width: 94vw;
+  max-height: 94vh;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+.image-lightbox-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-2);
+  color: var(--text-0);
+  font-size: 13px;
+}
+.image-lightbox-close:hover {
+  background: var(--accent);
+  color: #1a1310;
+}
 
 .composer {
   padding: 14px 28px 20px;
