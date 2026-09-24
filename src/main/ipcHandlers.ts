@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { nanoid } from 'nanoid'
-import type { AskPayload, ChatMessage } from '@shared/types'
+import type { AskPayload, ChatMessage, Conversation, ProviderConfig, ProviderId } from '@shared/types'
 import {
   getSettings,
   saveSettings,
@@ -24,7 +24,9 @@ import {
   expandCompanion,
   collapseCompanion,
   hideCompanionWindow,
-  getCompanionMode
+  getCompanionMode,
+  openConversationInMainWindow,
+  consumePendingConversationId
 } from './windows'
 import { registerHotkeys } from './hotkeys'
 
@@ -34,11 +36,17 @@ function broadcastStatus(status: string): void {
   }
 }
 
-function broadcastConversationUpdated(conversationId: string): void {
+function broadcastConversationUpdated(conversation: Conversation): void {
+  // Send the full in-memory conversation, not just an id the renderer would
+  // then re-fetch: the on-disk copy may have screenshot data stripped per
+  // the retention setting, but the current session should still show what
+  // was just captured.
   for (const win of [getMainWindow(), getCompanionWindow()]) {
-    win?.webContents.send('buddy:conversation-updated', conversationId)
+    win?.webContents.send('buddy:conversation-updated', conversation)
   }
 }
+
+let activeRequest: { controller: AbortController; cancelled: boolean; onCancel?: () => void } | null = null
 
 export function registerIpcHandlers(): void {
   // ---- Settings ----
@@ -79,9 +87,37 @@ export function registerIpcHandlers(): void {
     hideCompanionWindow()
   })
   ipcMain.handle('companion:get-mode', () => getCompanionMode())
+  ipcMain.handle('companion:get-position', () => getCompanionWindow()?.getPosition() ?? [0, 0])
+  ipcMain.handle('companion:set-position', (_e, x: number, y: number) => {
+    getCompanionWindow()?.setPosition(Math.round(x), Math.round(y))
+  })
+  ipcMain.handle('buddy:cancel', () => {
+    if (activeRequest) {
+      activeRequest.cancelled = true
+      activeRequest.controller.abort()
+      activeRequest.onCancel?.()
+    }
+  })
+
+  // ---- Provider model listing ----
+  ipcMain.handle('ai:fetch-models', async (_e, providerId: ProviderId, config: ProviderConfig) => {
+    const provider = getProvider(providerId)
+    if (!provider.listModels) {
+      throw new Error(`${config.label || providerId} doesn't support listing models — type one in manually.`)
+    }
+    return provider.listModels(config)
+  })
+
+  // ---- Overlay → maximized window handoff ----
+  ipcMain.handle('window:open-conversation', (_e, conversationId: string) => {
+    openConversationInMainWindow(conversationId)
+  })
+  ipcMain.handle('window:consume-pending-conversation', () => consumePendingConversationId())
 
   // ---- Core ask/analyze flow ----
   ipcMain.handle('buddy:ask', async (event, payload: AskPayload) => {
+    const request = { controller: new AbortController(), cancelled: false }
+    activeRequest = request
     const settings = getSettings()
     let conversation = payload.conversationId ? getConversation(payload.conversationId) : undefined
 
@@ -94,6 +130,18 @@ export function registerIpcHandlers(): void {
     let ocrText: string | null = null
     let activeApp: string | undefined
     let windowTitle: string | undefined
+    let assistantMessage: ChatMessage | null = null
+    let cancellationFinalized = false
+
+    function finalizeCancellation(): void {
+      if (cancellationFinalized || !assistantMessage) return
+      cancellationFinalized = true
+      assistantMessage.content += `${assistantMessage.content ? '\n\n' : ''}*canceled by user*`
+      conversation.updatedAt = Date.now()
+      upsertConversation(conversation)
+      broadcastConversationUpdated(conversation)
+      broadcastStatus('idle')
+    }
 
     try {
       if (payload.captureScreen) {
@@ -128,7 +176,8 @@ export function registerIpcHandlers(): void {
         role: 'user',
         content: payload.question,
         createdAt: Date.now(),
-        screenshotId: imageDataUrl ? 'latest' : null
+        screenshotId: imageDataUrl ? 'latest' : null,
+        screenshotDataUrl: payload.captureScreen ? imageDataUrl : null
       }
       conversation.messages.push(userMessage)
       conversation.updatedAt = Date.now()
@@ -136,7 +185,7 @@ export function registerIpcHandlers(): void {
         conversation.title = payload.question.slice(0, 60)
       }
       upsertConversation(conversation)
-      broadcastConversationUpdated(conversationId)
+      broadcastConversationUpdated(conversation)
 
       broadcastStatus('analyzing')
       const provider = getProvider(settings.ai.activeProvider)
@@ -148,32 +197,62 @@ export function registerIpcHandlers(): void {
           ? `\n\n[Context: active application "${activeApp ?? 'unknown'}", window "${windowTitle ?? 'unknown'}"]`
           : ''
 
-      const result = await provider.chat({
-        config: providerConfig,
-        systemPrompt: SYSTEM_PROMPT,
-        history: conversation.messages.slice(0, -1),
-        question: payload.question + contextNote,
-        imageDataUrl,
-        ocrText
-      })
-
-      broadcastStatus('responding')
-      const assistantMessage: ChatMessage = {
+      assistantMessage = {
         id: nanoid(),
         role: 'assistant',
-        content: result.text,
+        content: '',
         createdAt: Date.now(),
         provider: settings.ai.activeProvider,
         model: providerConfig.model
       }
       conversation.messages.push(assistantMessage)
+      upsertConversation(conversation)
+      broadcastConversationUpdated(conversation)
+      request.onCancel = finalizeCancellation
+      if (request.cancelled) finalizeCancellation()
+
+      const input = {
+        config: providerConfig,
+        systemPrompt: SYSTEM_PROMPT,
+        history: conversation.messages.slice(0, -1),
+        question: payload.question + contextNote,
+        imageDataUrl,
+        ocrText,
+        signal: request.controller.signal
+      }
+
+      if (provider.streamChat) {
+        await provider.streamChat(input, (delta) => {
+          assistantMessage!.content += delta
+          conversation.updatedAt = Date.now()
+          upsertConversation(conversation)
+          broadcastConversationUpdated(conversation)
+        })
+      } else {
+        const result = await provider.chat(input)
+        assistantMessage.content = result.text
+        conversation.updatedAt = Date.now()
+        upsertConversation(conversation)
+        broadcastConversationUpdated(conversation)
+      }
+
+      if (request.cancelled) {
+        finalizeCancellation()
+        return { conversationId, message: assistantMessage }
+      }
+
+      broadcastStatus('responding')
       conversation.updatedAt = Date.now()
       upsertConversation(conversation)
-      broadcastConversationUpdated(conversationId)
+      broadcastConversationUpdated(conversation)
       broadcastStatus('idle')
 
       return { conversationId, message: assistantMessage }
     } catch (err) {
+      if (request.cancelled && assistantMessage) {
+        finalizeCancellation()
+        return { conversationId, message: assistantMessage }
+      }
       broadcastStatus('error')
       const message =
         err instanceof ProviderError
@@ -191,8 +270,10 @@ export function registerIpcHandlers(): void {
       }
       conversation.messages.push(errorMessage)
       upsertConversation(conversation)
-      broadcastConversationUpdated(conversationId)
+      broadcastConversationUpdated(conversation)
       return { conversationId, message: errorMessage, error: message }
+    } finally {
+      if (activeRequest === request) activeRequest = null
     }
   })
 }

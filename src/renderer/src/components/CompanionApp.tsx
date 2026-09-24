@@ -24,8 +24,19 @@ export default function CompanionApp(): JSX.Element {
   const newConversation = useBuddyStore((s) => s.newConversation)
   const [mode, setMode] = useState<CompanionMode>('fab')
   const [input, setInput] = useState('')
+  const [captureOn, setCaptureOn] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fabDragRef = useRef<{
+    startX: number
+    startY: number
+    lastX: number
+    lastY: number
+    originX: number
+    originY: number
+    ready: boolean
+    moved: boolean
+  } | null>(null)
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
   const busy = status !== 'idle' && status !== 'error'
@@ -66,12 +77,61 @@ export default function CompanionApp(): JSX.Element {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [conversation?.messages.length])
 
-  async function handleSend(captureScreen: boolean): Promise<void> {
-    const q = input.trim() || (captureScreen ? "What's on my screen right now?" : '')
+  async function handleSend(): Promise<void> {
+    const q = input.trim() || (captureOn ? "What's on my screen right now?" : '')
     if (!q || busy) return
     setInput('')
     if (!activeConversationId) await newConversation()
-    await ask(q, captureScreen)
+    await ask(q, captureOn)
+  }
+
+  async function handleOpenInNewWindow(): Promise<void> {
+    if (activeConversationId) {
+      await buddy().mainWindow.openConversation(activeConversationId)
+    } else {
+      await buddy().mainWindow.openConversation('')
+    }
+  }
+
+  async function handleFabPointerDown(e: React.PointerEvent<HTMLButtonElement>): Promise<void> {
+    if (mode !== 'fab' || e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const drag = {
+      startX: e.screenX,
+      startY: e.screenY,
+      lastX: e.screenX,
+      lastY: e.screenY,
+      originX: 0,
+      originY: 0,
+      ready: false,
+      moved: false
+    }
+    fabDragRef.current = drag
+    const [originX, originY] = await buddy().companion.getPosition()
+    if (fabDragRef.current !== drag) return
+    drag.originX = originX
+    drag.originY = originY
+    drag.ready = true
+    if (drag.moved) void buddy().companion.setPosition(originX + drag.lastX - drag.startX, originY + drag.lastY - drag.startY)
+  }
+
+  function handleFabPointerMove(e: React.PointerEvent<HTMLButtonElement>): void {
+    const drag = fabDragRef.current
+    if (!drag) return
+    drag.lastX = e.screenX
+    drag.lastY = e.screenY
+    const deltaX = e.screenX - drag.startX
+    const deltaY = e.screenY - drag.startY
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) drag.moved = true
+    if (drag.ready && drag.moved) void buddy().companion.setPosition(drag.originX + deltaX, drag.originY + deltaY)
+  }
+
+  function handleFabPointerUp(e: React.PointerEvent<HTMLButtonElement>): void {
+    if (!fabDragRef.current) return
+    const moved = fabDragRef.current.moved
+    fabDragRef.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (!moved) void buddy().companion.expand()
   }
 
   if (loading) return <div />
@@ -81,10 +141,12 @@ export default function CompanionApp(): JSX.Element {
     return (
       <button
         className={`fab-button ${busy ? 'busy' : ''}`}
-        onClick={() => buddy().companion.expand()}
+        onPointerDown={handleFabPointerDown}
+        onPointerMove={handleFabPointerMove}
+        onPointerUp={handleFabPointerUp}
         title="Ask Buddy about your screen"
       >
-        👁
+        👀
       </button>
     )
   }
@@ -93,13 +155,16 @@ export default function CompanionApp(): JSX.Element {
   return (
     <div className="companion-root">
       <div className="companion-header">
-        <div className="title">
+          <div className="title">
           👁 Buddy{' '}
           {STATUS_LABEL[status] && <span style={{ color: 'var(--accent-text)' }}>· {STATUS_LABEL[status]}</span>}
         </div>
         <div className="actions">
           <button className="icon-btn" title="New chat" onClick={() => newConversation()}>
             ＋
+          </button>
+          <button className="icon-btn" title="Open in full window" onClick={handleOpenInNewWindow}>
+            ⤢
           </button>
           <button className="icon-btn" title="Collapse to floating button" onClick={() => buddy().companion.collapse()}>
             –
@@ -131,15 +196,24 @@ export default function CompanionApp(): JSX.Element {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                handleSend(true)
+                handleSend()
               }
             }}
           />
-          <button className="icon-btn" title="Send without a new capture" onClick={() => handleSend(false)}>
-            💬
-          </button>
-          <button className="icon-btn" title="Capture screen and ask" onClick={() => handleSend(true)} disabled={busy}>
+          <button
+            className={`composer-btn toggle ${captureOn ? 'on' : ''}`}
+            title={captureOn ? 'Capture on' : 'Capture off'}
+            onClick={() => setCaptureOn((v) => !v)}
+          >
             👁
+          </button>
+          <button
+            className="composer-btn primary"
+            disabled={busy || !input.trim()}
+            title="Send message"
+            onClick={handleSend}
+          >
+            {busy ? '…' : '➤'}
           </button>
         </div>
       </div>

@@ -30,6 +30,9 @@ interface Props {
   onChange: (next: string) => void
 }
 
+let activeCancel: (() => void) | null = null
+let activeOwner: object | null = null
+
 /**
  * A hotkey field that becomes a live recorder when clicked:
  *  - click -> placeholder "hit your hotkeys, Esc for cancel", a ✓ appears
@@ -43,6 +46,8 @@ export default function HotkeyRecorder({ value, onChange }: Props): JSX.Element 
   const [editing, setEditing] = useState(false)
   const [live, setLive] = useState('')
   const heldModifiers = useRef<Set<string>>(new Set())
+  const recorderRef = useRef<HTMLDivElement>(null)
+  const ownerRef = useRef<object>({})
 
   useEffect(() => {
     if (!editing) return
@@ -84,13 +89,33 @@ export default function HotkeyRecorder({ value, onChange }: Props): JSX.Element 
     }
   }, [editing])
 
+  useEffect(() => {
+    if (!editing) return
+
+    function onPointerDown(e: PointerEvent): void {
+      if (!recorderRef.current?.contains(e.target as Node)) {
+        cancel()
+      }
+    }
+
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  }, [editing])
+
   function startEditing(): void {
+    activeCancel?.()
+    activeCancel = cancel
+    activeOwner = ownerRef.current
     heldModifiers.current.clear()
     setLive('')
     setEditing(true)
   }
 
   function cancel(): void {
+    if (activeOwner === ownerRef.current) {
+      activeCancel = null
+      activeOwner = null
+    }
     heldModifiers.current.clear()
     setLive('')
     setEditing(false)
@@ -106,7 +131,7 @@ export default function HotkeyRecorder({ value, onChange }: Props): JSX.Element 
   }
 
   return (
-    <div className="hotkey-recorder">
+    <div ref={recorderRef} className="hotkey-recorder">
       <input
         type="text"
         readOnly

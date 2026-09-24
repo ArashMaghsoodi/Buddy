@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import type { AppSettings, ProviderId } from '@shared/types'
+import type { AppSettings, ModelInfo, ProviderConfig, ProviderId } from '@shared/types'
 import { useBuddyStore } from '../state/store'
+import { buddy } from '../lib/ipc'
 import HotkeyRecorder from './HotkeyRecorder'
+import ModelPicker from './ModelPicker'
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }): JSX.Element {
   return (
@@ -18,12 +20,45 @@ export default function SettingsPanel(): JSX.Element | null {
   const settings = useBuddyStore((s) => s.settings)
   const saveSettings = useBuddyStore((s) => s.saveSettings)
   const [local, setLocal] = useState<AppSettings | null>(settings)
+  const [modelOptions, setModelOptions] = useState<Partial<Record<ProviderId, ModelInfo[]>>>({})
+  const [fetchingProvider, setFetchingProvider] = useState<ProviderId | null>(null)
+  const [fetchErrors, setFetchErrors] = useState<Partial<Record<ProviderId, string>>>({})
 
   if (!local) return null
 
   function update(next: AppSettings): void {
     setLocal(next)
     saveSettings(next)
+  }
+
+  function updateActiveProvider(patch: Partial<ProviderConfig>): void {
+    const current = local!.ai.providers[local!.ai.activeProvider]
+    update({
+      ...local!,
+      ai: {
+        ...local!.ai,
+        providers: {
+          ...local!.ai.providers,
+          [current.id]: { ...current, ...patch }
+        }
+      }
+    })
+  }
+
+  async function handleFetchModels(provider: ProviderConfig): Promise<void> {
+    setFetchingProvider(provider.id)
+    setFetchErrors((prev) => ({ ...prev, [provider.id]: undefined }))
+    try {
+      const models = await buddy().ai.fetchModels(provider.id, provider)
+      setModelOptions((prev) => ({ ...prev, [provider.id]: models }))
+    } catch (err) {
+      setFetchErrors((prev) => ({
+        ...prev,
+        [provider.id]: err instanceof Error ? err.message : 'Could not fetch models.'
+      }))
+    } finally {
+      setFetchingProvider(null)
+    }
   }
 
   const activeProvider = local.ai.providers[local.ai.activeProvider]
@@ -135,78 +170,51 @@ export default function SettingsPanel(): JSX.Element | null {
               update({ ...local, ai: { ...local.ai, activeProvider: e.target.value as ProviderId } })
             }
           >
-            {Object.values(local.ai.providers).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
+            {Object.values(local.ai.providers)
+              .filter((p) => (p.id as string) !== 'custom-openai-compatible')
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
           </select>
         </div>
-        <div className="settings-row">
-          <div className="label">Model</div>
-          <input
-            type="text"
-            value={activeProvider.model}
-            onChange={(e) =>
-              update({
-                ...local,
-                ai: {
-                  ...local.ai,
-                  providers: {
-                    ...local.ai.providers,
-                    [activeProvider.id]: { ...activeProvider, model: e.target.value }
-                  }
-                }
-              })
-            }
-          />
-        </div>
-        {activeProvider.id !== 'local' && (
-          <div className="settings-row">
-            <div className="label">API key</div>
-            <input
-              type="password"
-              placeholder="sk-…"
-              value={activeProvider.apiKey ?? ''}
-              onChange={(e) =>
-                update({
-                  ...local,
-                  ai: {
-                    ...local.ai,
-                    providers: {
-                      ...local.ai.providers,
-                      [activeProvider.id]: { ...activeProvider, apiKey: e.target.value }
-                    }
-                  }
-                })
-              }
-            />
-          </div>
-        )}
-        {activeProvider.id === 'local' && (
+        {activeProvider.id === 'custom' && (
           <div className="settings-row">
             <div>
-              <div className="label">Endpoint</div>
-              <div className="desc">OpenAI-compatible base URL (LM Studio, Ollama, vLLM…)</div>
+              <div className="label">Base URL</div>
+              <div className="desc">The endpoint for your custom OpenAI-compatible provider</div>
             </div>
             <input
               type="text"
               value={activeProvider.baseUrl ?? ''}
-              onChange={(e) =>
-                update({
-                  ...local,
-                  ai: {
-                    ...local.ai,
-                    providers: {
-                      ...local.ai.providers,
-                      [activeProvider.id]: { ...activeProvider, baseUrl: e.target.value }
-                    }
-                  }
-                })
-              }
+              onChange={(e) => updateActiveProvider({ baseUrl: e.target.value })}
             />
           </div>
         )}
+        <div className="settings-row">
+          <div className="label">API key</div>
+          <input
+            type="password"
+            placeholder={activeProvider.id === 'custom' ? 'optional' : 'sk-…'}
+            value={activeProvider.apiKey ?? ''}
+            onChange={(e) => updateActiveProvider({ apiKey: e.target.value })}
+          />
+        </div>
+        <div className="settings-row">
+          <div>
+            <div className="label">Model</div>
+            <div className="desc">👀 vision · 🧠 reasoning · 🔨 tool use</div>
+          </div>
+          <ModelPicker
+            value={activeProvider.model}
+            options={modelOptions[activeProvider.id] ?? null}
+            loading={fetchingProvider === activeProvider.id}
+            error={fetchErrors[activeProvider.id] ?? null}
+            onChange={(next) => updateActiveProvider({ model: next })}
+            onFetch={() => handleFetchModels(activeProvider)}
+          />
+        </div>
       </div>
 
       <div className="settings-section">

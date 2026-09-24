@@ -8,7 +8,8 @@ looking at.
 
 This is the MVP build described in the project brief: floating companion,
 global hotkeys, screen capture, a provider-agnostic vision-AI backend
-(OpenAI / Anthropic / Google / local OpenAI-compatible endpoints),
+(OpenRouter, OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Groq, GitHub
+Copilot, or any custom OpenAI-compatible endpoint),
 conversational visual context, and local-only conversation storage.
 
 ## Tech stack

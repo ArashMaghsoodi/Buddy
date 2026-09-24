@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBuddyStore } from '../state/store'
+import { buddy } from '../lib/ipc'
 import MessageBubble from './MessageBubble'
 
 const EXAMPLE_PROMPTS = [
@@ -9,6 +10,34 @@ const EXAMPLE_PROMPTS = [
   'Where do I change this setting?'
 ]
 
+function StatusBubble({ status }: { status: string }): JSX.Element {
+  const [dotCount, setDotCount] = useState(0)
+
+  useEffect(() => {
+    if (status !== 'thinking') {
+      setDotCount(0)
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setDotCount((count) => (count + 1) % 4)
+    }, 450)
+    return () => window.clearInterval(timer)
+  }, [status])
+
+  const dots = status === 'thinking' ? '.'.repeat(dotCount) : '...'
+
+  return (
+    <div className="msg-row assistant status-message">
+      <div className="msg-col assistant">
+        <div className="msg-bubble status-bubble">
+          {status === 'thinking' ? `thinking${dots}` : `${status}${dots}`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatView(): JSX.Element {
   const activeConversationId = useBuddyStore((s) => s.activeConversationId)
   const conversations = useBuddyStore((s) => s.conversations)
@@ -16,21 +45,40 @@ export default function ChatView(): JSX.Element {
   const status = useBuddyStore((s) => s.status)
   const [input, setInput] = useState('')
   const [captureOn, setCaptureOn] = useState(true)
+  const [requestActive, setRequestActive] = useState(false)
+  const [cancelRequested, setCancelRequested] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
-  const busy = status !== 'idle' && status !== 'error'
+  const busy = requestActive
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [conversation?.messages.length])
+  }, [conversation?.messages.length, requestActive, status])
 
   async function handleSend(): Promise<void> {
     const q = input.trim()
     if (!q || busy) return
     setInput('')
-    await ask(q, captureOn)
+    setRequestActive(true)
+    setCancelRequested(false)
+    try {
+      await ask(q, captureOn)
+    } finally {
+      setRequestActive(false)
+    }
   }
+
+  function handleCancel(): void {
+    if (!requestActive || cancelRequested) return
+    setCancelRequested(true)
+    void buddy().cancel()
+  }
+
+  const lastMessage = conversation?.messages[conversation.messages.length - 1]
+  const hasLiveAssistantOutput = lastMessage?.role === 'assistant' && lastMessage.content.length > 0
+  const showStatusBubble =
+    !cancelRequested && !hasLiveAssistantOutput && (requestActive || (status !== 'idle' && status !== 'error'))
 
   return (
     <>
@@ -49,25 +97,20 @@ export default function ChatView(): JSX.Element {
                 </button>
               ))}
             </div>
+            {showStatusBubble && <StatusBubble status={status === 'idle' ? 'connecting' : status} />}
           </div>
         ) : (
           <div className="chat-inner">
             {conversation.messages.map((m) => (
               <MessageBubble key={m.id} message={m} />
             ))}
+            {showStatusBubble && <StatusBubble status={status === 'idle' ? 'connecting' : status} />}
           </div>
         )}
       </div>
 
       <div className="composer">
         <div className="composer-inner">
-          <button
-            className={`composer-btn toggle ${captureOn ? 'on' : ''}`}
-            title={captureOn ? 'Screen capture: on for this message' : 'Screen capture: off for this message'}
-            onClick={() => setCaptureOn((v) => !v)}
-          >
-            👁 {captureOn ? 'Screen on' : 'Screen off'}
-          </button>
           <textarea
             rows={1}
             placeholder="Ask about your screen…"
@@ -80,12 +123,24 @@ export default function ChatView(): JSX.Element {
               }
             }}
           />
-          <button className="composer-btn primary" disabled={busy || !input.trim()} onClick={handleSend}>
-            {busy ? '…' : 'Send'}
+          <button
+            className={`composer-btn toggle ${captureOn ? 'on' : ''}`}
+            title={captureOn ? 'Screen capture: on for this message' : 'Screen capture: off for this message'}
+            onClick={() => setCaptureOn((v) => !v)}
+          >
+            👀 {captureOn ? 'Screen on' : 'Screen off'}
+          </button>
+          <button
+            className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
+            disabled={busy ? cancelRequested : !input.trim()}
+            title={busy ? 'Cancel response' : 'Send message'}
+            onClick={busy ? handleCancel : handleSend}
+          >
+            {busy ? (cancelRequested ? '…' : '■') : '➤'}
           </button>
         </div>
         <div className="status-line">
-          {busy ? `${status[0].toUpperCase()}${status.slice(1)}…` : ''}
+          {cancelRequested ? 'Cancelling…' : busy ? `${status[0].toUpperCase()}${status.slice(1)}…` : ''}
         </div>
       </div>
     </>

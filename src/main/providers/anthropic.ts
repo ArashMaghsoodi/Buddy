@@ -1,12 +1,25 @@
+import type { ModelInfo, ProviderConfig } from '@shared/types'
 import type { VisionChatInput, VisionChatResult, VisionProvider } from './types'
 import { ProviderError } from './types'
+import { fetchWithRetry, extractErrorMessage } from './httpUtil'
 
 export class AnthropicProvider implements VisionProvider {
   id = 'anthropic'
 
+  private baseUrl(config: ProviderConfig): string {
+    return 'https://api.anthropic.com/v1'
+  }
+
+  private headers(config: ProviderConfig): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'x-api-key': config.apiKey ?? '',
+      'anthropic-version': '2023-06-01'
+    }
+  }
+
   async chat(input: VisionChatInput): Promise<VisionChatResult> {
-    const { config, systemPrompt, history, question, imageDataUrl, ocrText } = input
-    const baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.anthropic.com/v1'
+    const { config, systemPrompt, history, question, imageDataUrl, ocrText, signal } = input
 
     if (!config.apiKey) {
       throw new ProviderError('Missing Anthropic API key. Add one in Settings → AI.', this.id)
@@ -38,27 +51,29 @@ export class AnthropicProvider implements VisionProvider {
 
     let res: Response
     try {
-      res = await fetch(`${baseUrl}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': config.apiKey,
-          'anthropic-version': '2023-06-01'
+      res = await fetchWithRetry(
+        `${this.baseUrl(config)}/messages`,
+        {
+          method: 'POST',
+          headers: this.headers(config),
+          body: JSON.stringify({
+            model: config.model,
+            system: systemPrompt,
+            messages,
+            max_tokens: 1024,
+            stream: false
+          })
         },
-        body: JSON.stringify({
-          model: config.model,
-          system: systemPrompt,
-          messages,
-          max_tokens: 1024
-        })
-      })
+        { timeoutMs: 60_000, retries: 2, signal }
+      )
     } catch (err) {
-      throw new ProviderError('Could not reach Anthropic API.', this.id, err)
+      const msg = err instanceof Error ? err.message : 'Could not reach the API.'
+      throw new ProviderError(`Could not reach Anthropic: ${msg}`, this.id, err)
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new ProviderError(`Anthropic request failed (${res.status}): ${body.slice(0, 300)}`, this.id)
+      const msg = await extractErrorMessage(res)
+      throw new ProviderError(`Anthropic request failed (${res.status}): ${msg}`, this.id)
     }
 
     const data = (await res.json()) as {
@@ -69,5 +84,29 @@ export class AnthropicProvider implements VisionProvider {
       throw new ProviderError('Anthropic returned an empty response.', this.id)
     }
     return { text: textBlock.text }
+  }
+
+  async listModels(config: ProviderConfig): Promise<ModelInfo[]> {
+    let res: Response
+    try {
+      res = await fetchWithRetry(
+        `${this.baseUrl(config)}/models`,
+        { method: 'GET', headers: this.headers(config) },
+        { timeoutMs: 20_000, retries: 1 }
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not reach the API.'
+      throw new ProviderError(`Could not fetch models from Anthropic: ${msg}`, this.id, err)
+    }
+    if (!res.ok) {
+      const msg = await extractErrorMessage(res)
+      throw new ProviderError(`Anthropic model list failed (${res.status}): ${msg}`, this.id)
+    }
+    const data = (await res.json()) as { data?: Array<{ id?: string }> }
+    return (data.data ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => !!id)
+      .map((id) => ({ id, vision: true, reasoning: id.toLowerCase().includes('thinking'), tools: true }))
+      .sort((a, b) => a.id.localeCompare(b.id))
   }
 }

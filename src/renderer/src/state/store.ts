@@ -40,11 +40,9 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     })
 
     buddy().onStatus((status) => set({ status: status as AppStatus }))
-    buddy().onConversationUpdated(async (id) => {
-      const conv = await buddy().conversations.get(id)
-      if (!conv) return
+    buddy().onConversationUpdated((conv) => {
       set((state) => {
-        const others = state.conversations.filter((c) => c.id !== id)
+        const others = state.conversations.filter((c) => c.id !== conv.id)
         return { conversations: [conv, ...others].sort((a, b) => b.updatedAt - a.updatedAt) }
       })
     })

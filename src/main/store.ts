@@ -1,7 +1,7 @@
 import Store from 'electron-store'
 import { app } from 'electron'
 import { nanoid } from 'nanoid'
-import type { AppSettings, Conversation } from '@shared/types'
+import type { AppSettings, Conversation, ProviderId } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 
 /**
@@ -36,6 +36,26 @@ export function getSettings(): AppSettings {
   // Merge with defaults so new settings fields added in later versions
   // always have a sane value even for existing users.
   const stored = settingsStore.get('settings')
+  const providers = {} as AppSettings['ai']['providers']
+  for (const providerId of Object.keys(DEFAULT_SETTINGS.ai.providers) as ProviderId[]) {
+    const provider = stored?.ai?.providers?.[providerId]
+    providers[providerId] = {
+      ...DEFAULT_SETTINGS.ai.providers[providerId],
+      ...provider,
+      label: DEFAULT_SETTINGS.ai.providers[providerId].label,
+      ...(providerId === 'custom'
+        ? {}
+        : { baseUrl: DEFAULT_SETTINGS.ai.providers[providerId].baseUrl })
+    }
+  }
+
+  // Remove the legacy duplicate custom provider from persisted settings.
+  if (stored?.ai?.providers && 'custom-openai-compatible' in stored.ai.providers) {
+    const cleanedProviders = { ...stored.ai.providers }
+    delete (cleanedProviders as Record<string, unknown>)['custom-openai-compatible']
+    settingsStore.set('settings', { ...stored, ai: { ...stored.ai, providers: cleanedProviders } })
+  }
+
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
@@ -44,7 +64,7 @@ export function getSettings(): AppSettings {
     ai: {
       ...DEFAULT_SETTINGS.ai,
       ...stored?.ai,
-      providers: { ...DEFAULT_SETTINGS.ai.providers, ...stored?.ai?.providers }
+      providers
     },
     privacy: { ...DEFAULT_SETTINGS.privacy, ...stored?.privacy },
     appearance: { ...DEFAULT_SETTINGS.appearance, ...stored?.appearance }
@@ -102,11 +122,35 @@ export function createConversation(provider: Conversation['provider'], model: st
 export function upsertConversation(conv: Conversation): void {
   const all = conversationsStore.get('conversations')
   const idx = all.findIndex((c) => c.id === conv.id)
+  const toStore = sanitizeForStorage(conv)
   if (idx === -1) {
-    conversationsStore.set('conversations', [conv, ...all])
+    conversationsStore.set('conversations', [toStore, ...all])
   } else {
-    all[idx] = conv
+    all[idx] = toStore
     conversationsStore.set('conversations', all)
+  }
+}
+
+/**
+ * Screenshots are shown live in the current session regardless of the
+ * privacy setting (that's just UI feedback for the turn that was just
+ * sent), but whether they're written to disk is governed by
+ * `privacy.screenshotRetention`. "persist" keeps them in the conversation
+ * file; "session" and "none" both strip them before writing — the
+ * difference between those two is handled elsewhere (session simply never
+ * gets to this point again after the app restarts, since nothing was
+ * written).
+ */
+function sanitizeForStorage(conv: Conversation): Conversation {
+  const settings = getSettings()
+  if (settings.privacy.screenshotRetention === 'persist') return conv
+  const hasAny = conv.messages.some((m) => m.screenshotDataUrl)
+  if (!hasAny) return conv
+  return {
+    ...conv,
+    messages: conv.messages.map((m) =>
+      m.screenshotDataUrl ? { ...m, screenshotDataUrl: null } : m
+    )
   }
 }
 

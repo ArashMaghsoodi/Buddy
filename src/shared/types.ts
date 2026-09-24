@@ -1,14 +1,30 @@
 // Shared types used by main process, preload bridge, and renderer UI.
 
-export type ProviderId = 'openai' | 'anthropic' | 'google' | 'local'
+export type ProviderId =
+  | 'openrouter'
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'xai'
+  | 'deepseek'
+  | 'groq'
+  | 'github-copilot'
+  | 'custom'
 
 export interface ProviderConfig {
   id: ProviderId
   label: string
   apiKey?: string
-  baseUrl?: string // used for local / OpenAI-compatible endpoints
+  baseUrl?: string // configurable for custom OpenAI-compatible providers
   model: string
   supportsVision: boolean
+}
+
+export interface ModelInfo {
+  id: string
+  vision: boolean
+  reasoning: boolean
+  tools: boolean
 }
 
 export interface AppSettings {
@@ -51,6 +67,7 @@ export interface ChatMessage {
   content: string
   createdAt: number
   screenshotId?: string | null // reference to a captured screenshot used for this message
+  screenshotDataUrl?: string | null // the actual captured image, shown attached above the bubble
   provider?: ProviderId
   model?: string
   error?: string
@@ -111,31 +128,69 @@ export const DEFAULT_SETTINGS: AppSettings = {
     proactiveModeEnabled: false
   },
   ai: {
-    activeProvider: 'openai',
+    activeProvider: 'openrouter',
     providers: {
+      openrouter: {
+        id: 'openrouter',
+        label: 'OpenRouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        model: 'openai/gpt-4o',
+        supportsVision: true
+      },
       openai: {
         id: 'openai',
         label: 'OpenAI',
+        baseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4o',
         supportsVision: true
       },
       anthropic: {
         id: 'anthropic',
         label: 'Anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
         model: 'claude-sonnet-4-6',
         supportsVision: true
       },
-      google: {
-        id: 'google',
-        label: 'Google',
+      gemini: {
+        id: 'gemini',
+        label: 'Google Gemini',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         model: 'gemini-1.5-pro',
         supportsVision: true
       },
-      local: {
-        id: 'local',
-        label: 'Local / OpenAI-compatible',
+      xai: {
+        id: 'xai',
+        label: 'xAI',
+        baseUrl: 'https://api.x.ai/v1',
+        model: 'grok-2-vision',
+        supportsVision: true
+      },
+      deepseek: {
+        id: 'deepseek',
+        label: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        model: 'deepseek-chat',
+        supportsVision: false
+      },
+      groq: {
+        id: 'groq',
+        label: 'Groq',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'llama-3.2-90b-vision-preview',
+        supportsVision: true
+      },
+      'github-copilot': {
+        id: 'github-copilot',
+        label: 'GitHub Copilot',
+        baseUrl: 'https://api.githubcopilot.com',
+        model: 'gpt-4o',
+        supportsVision: true
+      },
+      custom: {
+        id: 'custom',
+        label: 'Custom OpenAI-compatible',
         baseUrl: 'http://localhost:1234/v1',
-        model: 'qwen2-vl',
+        model: '',
         supportsVision: true
       }
     }

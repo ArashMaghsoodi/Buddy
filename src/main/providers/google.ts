@@ -1,18 +1,21 @@
+import type { ModelInfo, ProviderConfig } from '@shared/types'
 import type { VisionChatInput, VisionChatResult, VisionProvider } from './types'
 import { ProviderError } from './types'
+import { fetchWithRetry, extractErrorMessage } from './httpUtil'
 
 export class GoogleProvider implements VisionProvider {
-  id = 'google'
+  id = 'gemini'
+
+  private baseUrl(config: ProviderConfig): string {
+    return 'https://generativelanguage.googleapis.com/v1beta'
+  }
 
   async chat(input: VisionChatInput): Promise<VisionChatResult> {
-    const { config, systemPrompt, history, question, imageDataUrl, ocrText } = input
+    const { config, systemPrompt, history, question, imageDataUrl, ocrText, signal } = input
 
     if (!config.apiKey) {
       throw new ProviderError('Missing Google API key. Add one in Settings → AI.', this.id)
     }
-
-    const baseUrl =
-      config.baseUrl?.replace(/\/$/, '') || 'https://generativelanguage.googleapis.com/v1beta'
 
     const historyText = history
       .filter((m) => m.role !== 'system')
@@ -37,21 +40,23 @@ export class GoogleProvider implements VisionProvider {
 
     let res: Response
     try {
-      res = await fetch(
-        `${baseUrl}/models/${encodeURIComponent(config.model)}:generateContent?key=${config.apiKey}`,
+      res = await fetchWithRetry(
+        `${this.baseUrl(config)}/models/${encodeURIComponent(config.model)}:generateContent?key=${config.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ role: 'user', parts }] })
-        }
+        },
+        { timeoutMs: 60_000, retries: 2, signal }
       )
     } catch (err) {
-      throw new ProviderError('Could not reach Google Gemini API.', this.id, err)
+      const msg = err instanceof Error ? err.message : 'Could not reach the API.'
+      throw new ProviderError(`Could not reach Google Gemini: ${msg}`, this.id, err)
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new ProviderError(`Google request failed (${res.status}): ${body.slice(0, 300)}`, this.id)
+      const msg = await extractErrorMessage(res)
+      throw new ProviderError(`Google request failed (${res.status}): ${msg}`, this.id)
     }
 
     const data = (await res.json()) as {
@@ -62,5 +67,32 @@ export class GoogleProvider implements VisionProvider {
       throw new ProviderError('Google returned an empty response.', this.id)
     }
     return { text: textOut }
+  }
+
+  async listModels(config: ProviderConfig): Promise<ModelInfo[]> {
+    let res: Response
+    try {
+      res = await fetchWithRetry(
+        `${this.baseUrl(config)}/models?key=${config.apiKey ?? ''}`,
+        { method: 'GET' },
+        { timeoutMs: 20_000, retries: 1 }
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not reach the API.'
+      throw new ProviderError(`Could not fetch models from Google: ${msg}`, this.id, err)
+    }
+    if (!res.ok) {
+      const msg = await extractErrorMessage(res)
+      throw new ProviderError(`Google model list failed (${res.status}): ${msg}`, this.id)
+    }
+    const data = (await res.json()) as {
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>
+    }
+    return (data.models ?? [])
+      .filter((m) => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => (m.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean)
+      .map((id) => ({ id, vision: true, reasoning: id.toLowerCase().includes('thinking'), tools: true }))
+      .sort((a, b) => a.id.localeCompare(b.id))
   }
 }

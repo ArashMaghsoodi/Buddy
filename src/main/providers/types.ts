@@ -1,4 +1,4 @@
-import type { ChatMessage, ProviderConfig } from '@shared/types'
+import type { ChatMessage, ModelInfo, ProviderConfig } from '@shared/types'
 
 export interface VisionChatInput {
   config: ProviderConfig
@@ -7,6 +7,7 @@ export interface VisionChatInput {
   question: string
   imageDataUrl?: string | null // the current screenshot, if any, as a data URL
   ocrText?: string | null
+  signal?: AbortSignal
 }
 
 export interface VisionChatResult {
@@ -21,6 +22,9 @@ export interface VisionChatResult {
 export interface VisionProvider {
   id: string
   chat(input: VisionChatInput): Promise<VisionChatResult>
+  streamChat?(input: VisionChatInput, onDelta: (delta: string) => void): Promise<void>
+  /** Optional: list available model IDs for the "Fetch" button in Settings. */
+  listModels?(config: ProviderConfig): Promise<ModelInfo[]>
 }
 
 export class ProviderError extends Error {

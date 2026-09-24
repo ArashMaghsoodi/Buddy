@@ -6,6 +6,7 @@ import { getSettings } from './store'
 let mainWindow: BrowserWindow | null = null
 let companionWindow: BrowserWindow | null = null
 let companionMode: 'fab' | 'overlay' = 'fab'
+let companionAnimation: ReturnType<typeof setInterval> | null = null
 
 const preloadPath = join(__dirname, '../preload/index.js')
 const rendererDevServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -73,7 +74,7 @@ export function createMainWindow(): BrowserWindow {
 // coordinate handoff between windows — it just re-renders based on the
 // current mode, pushed over IPC.
 
-const FAB_SIZE = 60
+const FAB_SIZE = 64
 const OVERLAY_WIDTH = 380
 const OVERLAY_HEIGHT = 520
 const EDGE_MARGIN = 24
@@ -140,19 +141,67 @@ function ensureCompanionWindow(): BrowserWindow {
   return companionWindow
 }
 
+function animateCompanionBounds(win: BrowserWindow, target: Electron.Rectangle): void {
+  if (companionAnimation) clearInterval(companionAnimation)
+  const start = win.getBounds()
+  const duration = 180
+  const startedAt = Date.now()
+
+  if (
+    start.x === target.x &&
+    start.y === target.y &&
+    start.width === target.width &&
+    start.height === target.height
+  ) {
+    return
+  }
+
+  companionAnimation = setInterval(() => {
+    if (win.isDestroyed()) {
+      if (companionAnimation) clearInterval(companionAnimation)
+      companionAnimation = null
+      return
+    }
+    const progress = Math.min((Date.now() - startedAt) / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    win.setBounds({
+      x: Math.round(start.x + (target.x - start.x) * eased),
+      y: Math.round(start.y + (target.y - start.y) * eased),
+      width: Math.round(start.width + (target.width - start.width) * eased),
+      height: Math.round(start.height + (target.height - start.height) * eased)
+    })
+    if (progress >= 1) {
+      if (companionAnimation) clearInterval(companionAnimation)
+      companionAnimation = null
+    }
+  }, 16)
+}
+
 /** Resize/reposition the companion window for the given mode and notify the renderer. */
 function applyCompanionMode(mode: 'fab' | 'overlay'): void {
   const win = ensureCompanionWindow()
-  companionMode = mode
   if (mode === 'fab') {
+    const bounds = win.getBounds()
     win.setResizable(false)
     win.setHasShadow(false)
-    anchorBottomRight(win, FAB_SIZE, FAB_SIZE)
+    animateCompanionBounds(win, {
+      x: bounds.x + bounds.width - FAB_SIZE,
+      y: bounds.y + bounds.height - FAB_SIZE,
+      width: FAB_SIZE,
+      height: FAB_SIZE
+    })
   } else {
+    const bounds = win.getBounds()
     win.setResizable(true)
     win.setHasShadow(true)
-    anchorBottomRight(win, OVERLAY_WIDTH, OVERLAY_HEIGHT)
+    animateCompanionBounds(win, {
+      x: bounds.x + bounds.width - OVERLAY_WIDTH,
+      y: bounds.y + bounds.height - OVERLAY_HEIGHT,
+      width: OVERLAY_WIDTH,
+      height: OVERLAY_HEIGHT
+    })
   }
+  companionMode = mode
   win.webContents.send('buddy:companion-mode', mode)
 }
 
@@ -187,4 +236,32 @@ export function hideCompanionWindow(): void {
 
 export function setCompanionAlwaysOnTop(alwaysOnTop: boolean): void {
   companionWindow?.setAlwaysOnTop(alwaysOnTop, 'floating')
+}
+
+// ---- Overlay → maximized window handoff ----
+//
+// "Open in new window" in the compact overlay needs to bring up the full
+// window already showing the same conversation. If the main window isn't
+// created/loaded yet, the renderer isn't ready to receive an IPC push, so
+// we stash the target conversation id and let the renderer pull it once
+// on mount (see `window:consume-pending-conversation`) as a fallback to
+// the live push used when the window is already open.
+let pendingOpenConversationId: string | null = null
+
+export function openConversationInMainWindow(conversationId: string): void {
+  const win = createMainWindow()
+  win.show()
+  win.focus()
+  if (!conversationId) return
+  if (win.webContents.isLoading()) {
+    pendingOpenConversationId = conversationId
+  } else {
+    win.webContents.send('buddy:open-conversation', conversationId)
+  }
+}
+
+export function consumePendingConversationId(): string | null {
+  const id = pendingOpenConversationId
+  pendingOpenConversationId = null
+  return id
 }
