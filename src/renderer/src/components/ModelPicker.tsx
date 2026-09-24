@@ -44,7 +44,7 @@ export default function ModelPicker({ value, options, loading, error, onChange, 
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  const filtered = options?.filter((m) => m.id.toLowerCase().includes(draft.toLowerCase())).slice(0, 50) ?? []
+  const filtered = options?.filter((m) => m.id.toLowerCase().includes(draft.toLowerCase())) ?? []
   const selectedModel = options?.find((model) => model.id === value)
 
   function commit(v: string): void {

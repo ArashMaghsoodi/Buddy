@@ -77,7 +77,7 @@ export class OpenAICompatibleProvider implements VisionProvider {
   }
 
   private baseUrl(config: ProviderConfig): string {
-    const configuredBaseUrl = config.id === 'custom' ? config.baseUrl : undefined
+    const configuredBaseUrl = config.id === 'custom' || config.id === '9router' ? config.baseUrl : undefined
     return (configuredBaseUrl || this.defaultBaseUrl).replace(/\/$/, '')
   }
 

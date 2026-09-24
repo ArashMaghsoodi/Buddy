@@ -179,11 +179,15 @@ export default function SettingsPanel(): JSX.Element | null {
               ))}
           </select>
         </div>
-        {activeProvider.id === 'custom' && (
+        {(activeProvider.id === 'custom' || activeProvider.id === '9router') && (
           <div className="settings-row">
             <div>
               <div className="label">Base URL</div>
-              <div className="desc">The endpoint for your custom OpenAI-compatible provider</div>
+              <div className="desc">
+                {activeProvider.id === '9router'
+                  ? '9Router endpoint; models and dashboard combos appear together'
+                  : 'The endpoint for your custom OpenAI-compatible provider'}
+              </div>
             </div>
             <input
               type="text"
@@ -196,7 +200,7 @@ export default function SettingsPanel(): JSX.Element | null {
           <div className="label">API key</div>
           <input
             type="password"
-            placeholder={activeProvider.id === 'custom' ? 'optional' : 'sk-…'}
+            placeholder={activeProvider.id === 'custom' || activeProvider.id === '9router' ? 'optional' : 'sk-…'}
             value={activeProvider.apiKey ?? ''}
             onChange={(e) => updateActiveProvider({ apiKey: e.target.value })}
           />

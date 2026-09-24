@@ -357,6 +357,8 @@ textarea {
   color: var(--accent-text);
 }
 .msg-row.user .msg-bubble {
+  width: fit-content;
+  max-width: 100%;
   min-width: 48px;
   background: var(--accent);
   color: #1a1310;
@@ -471,15 +473,6 @@ textarea {
 .composer-btn.toggle.on {
   background: var(--accent-soft);
   color: var(--accent-text);
-}
-
-.status-line {
-  max-width: 720px;
-  margin: 6px auto 0;
-  font-size: 11.5px;
-  color: var(--text-2);
-  padding: 0 4px;
-  height: 14px;
 }
 
 /* Settings */

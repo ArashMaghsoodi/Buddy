@@ -50,6 +50,12 @@ const registry: Record<ProviderId, VisionProvider> = {
     label: 'GitHub Copilot',
     defaultBaseUrl: 'https://api.githubcopilot.com'
   }),
+  '9router': new OpenAICompatibleProvider({
+    id: '9router',
+    label: '9Router',
+    defaultBaseUrl: 'http://localhost:20128/v1',
+    requiresApiKey: false
+  }),
   custom: new OpenAICompatibleProvider({
     id: 'custom',
     label: 'Custom OpenAI-compatible',

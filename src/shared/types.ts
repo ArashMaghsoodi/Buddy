@@ -9,6 +9,7 @@ export type ProviderId =
   | 'deepseek'
   | 'groq'
   | 'github-copilot'
+  | '9router'
   | 'custom'
 
 export interface ProviderConfig {
@@ -184,6 +185,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
         label: 'GitHub Copilot',
         baseUrl: 'https://api.githubcopilot.com',
         model: 'gpt-4o',
+        supportsVision: true
+      },
+      '9router': {
+        id: '9router',
+        label: '9Router',
+        baseUrl: 'http://localhost:20128/v1',
+        model: '',
         supportsVision: true
       },
       custom: {

@@ -25,6 +25,8 @@ export default function CompanionApp(): JSX.Element {
   const [mode, setMode] = useState<CompanionMode>('fab')
   const [input, setInput] = useState('')
   const [captureOn, setCaptureOn] = useState(true)
+  const [requestActive, setRequestActive] = useState(false)
+  const [cancelRequested, setCancelRequested] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fabDragRef = useRef<{
@@ -39,7 +41,7 @@ export default function CompanionApp(): JSX.Element {
   } | null>(null)
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
-  const busy = status !== 'idle' && status !== 'error'
+  const busy = requestActive || (status !== 'idle' && status !== 'error')
 
   useEffect(() => {
     loadInitial()
@@ -81,8 +83,20 @@ export default function CompanionApp(): JSX.Element {
     const q = input.trim() || (captureOn ? "What's on my screen right now?" : '')
     if (!q || busy) return
     setInput('')
-    if (!activeConversationId) await newConversation()
-    await ask(q, captureOn)
+    setRequestActive(true)
+    setCancelRequested(false)
+    try {
+      if (!activeConversationId) await newConversation()
+      await ask(q, captureOn)
+    } finally {
+      setRequestActive(false)
+    }
+  }
+
+  function handleCancel(): void {
+    if (!busy || cancelRequested) return
+    setCancelRequested(true)
+    void buddy().cancel()
   }
 
   async function handleOpenInNewWindow(): Promise<void> {
@@ -208,12 +222,12 @@ export default function CompanionApp(): JSX.Element {
             👁
           </button>
           <button
-            className="composer-btn primary"
-            disabled={busy || !input.trim()}
-            title="Send message"
-            onClick={handleSend}
+            className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
+            disabled={busy ? cancelRequested : !input.trim()}
+            title={busy ? 'Cancel response' : 'Send message'}
+            onClick={busy ? handleCancel : handleSend}
           >
-            {busy ? '…' : '➤'}
+            {busy ? (cancelRequested ? '…' : '■') : '➤'}
           </button>
         </div>
       </div>

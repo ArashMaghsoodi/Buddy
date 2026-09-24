@@ -43,7 +43,7 @@ export function getSettings(): AppSettings {
       ...DEFAULT_SETTINGS.ai.providers[providerId],
       ...provider,
       label: DEFAULT_SETTINGS.ai.providers[providerId].label,
-      ...(providerId === 'custom'
+      ...(providerId === 'custom' || providerId === '9router'
         ? {}
         : { baseUrl: DEFAULT_SETTINGS.ai.providers[providerId].baseUrl })
     }

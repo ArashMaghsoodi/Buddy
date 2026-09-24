@@ -79,6 +79,9 @@ export default function ChatView(): JSX.Element {
   const hasLiveAssistantOutput = lastMessage?.role === 'assistant' && lastMessage.content.length > 0
   const showStatusBubble =
     !cancelRequested && !hasLiveAssistantOutput && (requestActive || (status !== 'idle' && status !== 'error'))
+  const visibleMessages = conversation?.messages.filter(
+    (message) => !(requestActive && message.role === 'assistant' && !message.content && !message.error)
+  )
 
   return (
     <>
@@ -101,7 +104,7 @@ export default function ChatView(): JSX.Element {
           </div>
         ) : (
           <div className="chat-inner">
-            {conversation.messages.map((m) => (
+            {visibleMessages?.map((m) => (
               <MessageBubble key={m.id} message={m} />
             ))}
             {showStatusBubble && <StatusBubble status={status === 'idle' ? 'connecting' : status} />}
@@ -138,9 +141,6 @@ export default function ChatView(): JSX.Element {
           >
             {busy ? (cancelRequested ? '…' : '■') : '➤'}
           </button>
-        </div>
-        <div className="status-line">
-          {cancelRequested ? 'Cancelling…' : busy ? `${status[0].toUpperCase()}${status.slice(1)}…` : ''}
         </div>
       </div>
     </>
