@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 
 const MODIFIER_ORDER = ['Control', 'Alt', 'Shift', 'Super']
 
@@ -141,7 +142,7 @@ export default function HotkeyRecorder({ value, onChange }: Props): JSX.Element 
       />
       {editing && (
         <button className="hotkey-confirm" title="Confirm hotkey" onClick={confirm}>
-          ✓
+          <Check size={15} />
         </button>
       )}
     </div>

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "electron-store": "^8.2.0",
+    "lucide-react": "^1.48.0",
     "nanoid": "^5.0.7",
     "react-markdown": "^10.1.0",
     "zustand": "^4.5.2"

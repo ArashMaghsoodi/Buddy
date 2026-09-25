@@ -108,6 +108,7 @@ export interface MonitorInfo {
 export interface WindowInfo {
   id: string // desktopCapturer source id
   title: string
+  iconDataUrl: string | null // window icon as data URL (null = none available)
 }
 
 export interface RegionRect {
@@ -127,6 +128,11 @@ export type CaptureRequest =
   | { kind: 'monitor'; displayId: string | null } // null = primary monitor
   | { kind: 'window'; windowId: string | null }    // null = current/focused window
   | { kind: 'region'; region: RegionRect }          // region selected by the user
+
+export interface CompanionState {
+  mode: 'fab' | 'overlay'
+  visible: boolean
+}
 
 export interface CaptureOutcome {
   dataUrl: string

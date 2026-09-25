@@ -1,5 +1,6 @@
 import { BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
+import type { CompanionState } from '@shared/types'
 import { is } from './utils'
 import { getSettings } from './store'
 
@@ -21,6 +22,18 @@ export function getCompanionWindow(): BrowserWindow | null {
 
 export function getCompanionMode(): 'fab' | 'overlay' {
   return companionMode
+}
+
+export function getCompanionState(): CompanionState {
+  return {
+    mode: companionMode,
+    visible: Boolean(companionWindow && !companionWindow.isDestroyed() && companionWindow.isVisible())
+  }
+}
+
+function broadcastCompanionState(): void {
+  const state = getCompanionState()
+  getMainWindow()?.webContents.send('buddy:companion-state', state)
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -203,6 +216,7 @@ function applyCompanionMode(mode: 'fab' | 'overlay'): void {
   }
   companionMode = mode
   win.webContents.send('buddy:companion-mode', mode)
+  broadcastCompanionState()
 }
 
 /** Show the FAB at startup without stealing focus from whatever the user is doing. */
@@ -210,6 +224,7 @@ export function showCompanionFabQuietly(): void {
   const win = ensureCompanionWindow()
   applyCompanionMode('fab')
   win.showInactive()
+  broadcastCompanionState()
 }
 
 export function expandCompanion(): void {
@@ -217,12 +232,14 @@ export function expandCompanion(): void {
   applyCompanionMode('overlay')
   win.show()
   win.focus()
+  broadcastCompanionState()
 }
 
 export function collapseCompanion(): void {
   const win = ensureCompanionWindow()
   applyCompanionMode('fab')
   win.show()
+  broadcastCompanionState()
 }
 
 export function toggleCompanionMode(): void {
@@ -232,6 +249,7 @@ export function toggleCompanionMode(): void {
 
 export function hideCompanionWindow(): void {
   companionWindow?.hide()
+  broadcastCompanionState()
 }
 
 export function setCompanionAlwaysOnTop(alwaysOnTop: boolean): void {

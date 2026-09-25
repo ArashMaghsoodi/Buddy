@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChatMessage } from '@shared/types'
 import ReactMarkdown from 'react-markdown'
+import { AlertTriangle, Check, Copy, Maximize2, X } from 'lucide-react'
 
 export default function MessageBubble({ message }: { message: ChatMessage }): JSX.Element {
   const isUser = message.role === 'user'
@@ -43,13 +44,15 @@ export default function MessageBubble({ message }: { message: ChatMessage }): JS
           >
             <img className="msg-thumb" src={message.screenshotDataUrl} alt="Captured screen" />
             <span className="msg-image-overlay" aria-hidden="true">
-              ⤢
+              <Maximize2 size={16} />
             </span>
           </button>
         )}
         <div className={`msg-bubble ${message.error ? 'error' : ''}`}>
           {message.error ? (
-            `⚠ ${message.error}`
+            <span className="msg-error">
+              <AlertTriangle size={14} /> {message.error}
+            </span>
           ) : (
             <ReactMarkdown>{message.content}</ReactMarkdown>
           )}
@@ -59,21 +62,11 @@ export default function MessageBubble({ message }: { message: ChatMessage }): JS
             <button
               type="button"
               className={`msg-action ${copied ? 'copied' : ''}`}
-              title="Copy message text"
+              title={copied ? 'Copied' : 'Copy message text'}
               aria-label="Copy message text"
               onClick={() => void handleCopy()}
             >
-              {copied ? (
-                <>
-                  <span className="msg-action-icon">✓</span>
-                  <span>Copied</span>
-                </>
-              ) : (
-                <>
-                  <span className="msg-action-icon">⧉</span>
-                  <span>Copy</span>
-                </>
-              )}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
           </div>
         )}
@@ -95,7 +88,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }): JS
               aria-label="Close fullscreen preview"
               onClick={() => setImageOpen(false)}
             >
-              ✕
+              <X size={18} />
             </button>
           </div>
         </div>

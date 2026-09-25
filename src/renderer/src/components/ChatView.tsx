@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
+import { Loader2, Send, Square } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import CapturePicker from './CapturePicker'
 
@@ -45,7 +46,6 @@ export default function ChatView(): JSX.Element {
   const ask = useBuddyStore((s) => s.ask)
   const status = useBuddyStore((s) => s.status)
   const [input, setInput] = useState('')
-  const [captureOn, setCaptureOn] = useState(true)
   const [requestActive, setRequestActive] = useState(false)
   const [cancelRequested, setCancelRequested] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -64,7 +64,7 @@ export default function ChatView(): JSX.Element {
     setRequestActive(true)
     setCancelRequested(false)
     try {
-      await ask(q, captureOn)
+      await ask(q, true)
     } finally {
       setRequestActive(false)
     }
@@ -127,13 +127,6 @@ export default function ChatView(): JSX.Element {
               }
             }}
           />
-          <button
-            className={`composer-btn toggle ${captureOn ? 'on' : ''}`}
-            title={captureOn ? 'Screen capture: on for this message' : 'Screen capture: off for this message'}
-            onClick={() => setCaptureOn((v) => !v)}
-          >
-            👀 {captureOn ? 'Screen on' : 'Screen off'}
-          </button>
           <CapturePicker />
           <button
             className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
@@ -141,7 +134,7 @@ export default function ChatView(): JSX.Element {
             title={busy ? 'Cancel response' : 'Send message'}
             onClick={busy ? handleCancel : handleSend}
           >
-            {busy ? (cancelRequested ? '…' : '■') : '➤'}
+            {busy ? (cancelRequested ? <Loader2 size={15} className="spin" /> : <Square size={13} />) : <Send size={15} />}
           </button>
         </div>
       </div>

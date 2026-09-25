@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useBuddyStore } from '../state/store'
+import { Plus, Search, Settings, Trash, X } from 'lucide-react'
 
 interface Props {
   view: 'chat' | 'settings'
@@ -26,22 +27,28 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
 
   return (
     <div className="sidebar">
-      <button
-        className="sidebar-new-btn"
-        onClick={async () => {
-          await newConversation()
-          onChangeView('chat')
-        }}
-      >
-        <span>＋</span> New conversation
-      </button>
-
-      <input
-        className="sidebar-search"
-        placeholder="Search conversations…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <div className="sidebar-search-row">
+        <button
+          className="sidebar-new-btn"
+          title="New conversation"
+          aria-label="New conversation"
+          onClick={async () => {
+            await newConversation()
+            onChangeView('chat')
+          }}
+        >
+          <Plus size={17} />
+        </button>
+        <div className="sidebar-search-wrap">
+          <Search className="sidebar-search-icon" size={14} aria-hidden="true" />
+          <input
+            className="sidebar-search"
+            placeholder="Search conversations…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
       <div className="sidebar-section-label">History</div>
       <div className="sidebar-list">
@@ -68,7 +75,7 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
               }}
               title="Delete conversation"
             >
-              ✕
+              <Trash size={13} />
             </button>
           </div>
         ))}
@@ -80,7 +87,7 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
           style={view === 'settings' ? { color: 'var(--text-0)', background: 'var(--bg-2)' } : {}}
           onClick={() => onChangeView('settings')}
         >
-          ⚙ Settings
+          <Settings size={15} /> Settings
         </button>
       </div>
     </div>

@@ -35,6 +35,7 @@ import {
   collapseCompanion,
   hideCompanionWindow,
   getCompanionMode,
+  getCompanionState,
   openConversationInMainWindow,
   consumePendingConversationId
 } from './windows'
@@ -97,6 +98,7 @@ export function registerIpcHandlers(): void {
     hideCompanionWindow()
   })
   ipcMain.handle('companion:get-mode', () => getCompanionMode())
+  ipcMain.handle('companion:get-state', () => getCompanionState())
   ipcMain.handle('companion:get-position', () => getCompanionWindow()?.getPosition() ?? [0, 0])
   ipcMain.handle('companion:set-position', (_e, x: number, y: number) => {
     getCompanionWindow()?.setPosition(Math.round(x), Math.round(y))
@@ -138,7 +140,7 @@ export function registerIpcHandlers(): void {
     const sources = await desktopCapturer.getSources({
       types: ['window'],
       thumbnailSize: { width: 0, height: 0 },
-      fetchWindowIcons: false
+      fetchWindowIcons: true
     })
     const buddyTitles = new Set(
       BrowserWindow.getAllWindows()
@@ -152,7 +154,11 @@ export function registerIpcHandlers(): void {
     // so vendor overlay variants are all caught.
     return sources
       .filter((s) => !buddyTitles.has(s.name) && !isOverlayWindow(s.name))
-      .map((s) => ({ id: s.id, title: s.name }))
+      .map((s) => ({
+        id: s.id,
+        title: s.name,
+        iconDataUrl: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null
+      }))
   })
 
   ipcMain.handle('captures:select-region', async (): Promise<RegionRect | null> => {

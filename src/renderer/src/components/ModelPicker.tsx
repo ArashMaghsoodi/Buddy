@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ModelInfo } from '@shared/types'
+import { Brain, Eye, Hammer } from 'lucide-react'
 
 interface Props {
   value: string
@@ -10,8 +11,17 @@ interface Props {
   onFetch: () => void
 }
 
-function capabilityLabel(model: ModelInfo): string {
-  return `${model.vision ? '👀' : ''}${model.reasoning ? '🧠' : ''}${model.tools ? '🔨' : ''}`
+function capabilityLabel(model: ModelInfo): JSX.Element | null {
+  const icons = []
+  if (model.vision) icons.push(<Eye key="v" size={12} />)
+  if (model.reasoning) icons.push(<Brain key="r" size={12} />)
+  if (model.tools) icons.push(<Hammer key="t" size={12} />)
+  if (!icons.length) return null
+  return (
+    <span className="model-capability-icons">
+      {icons}
+    </span>
+  )
 }
 
 /**

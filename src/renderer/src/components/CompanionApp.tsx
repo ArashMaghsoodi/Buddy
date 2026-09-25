@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
+import { Galaxy, Loader2, Maximize2, Minus, Plus, Send, Square, X } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import CapturePicker from './CapturePicker'
 
 type CompanionMode = 'fab' | 'overlay'
 
 const STATUS_LABEL: Record<string, string> = {
-  idle: '',
+  idle: 'Ready',
   capturing: 'Capturing…',
   analyzing: 'Analyzing…',
   thinking: 'Thinking…',
@@ -25,7 +26,6 @@ export default function CompanionApp(): JSX.Element {
   const newConversation = useBuddyStore((s) => s.newConversation)
   const [mode, setMode] = useState<CompanionMode>('fab')
   const [input, setInput] = useState('')
-  const [captureOn, setCaptureOn] = useState(true)
   const [requestActive, setRequestActive] = useState(false)
   const [cancelRequested, setCancelRequested] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -81,14 +81,14 @@ export default function CompanionApp(): JSX.Element {
   }, [conversation?.messages.length])
 
   async function handleSend(): Promise<void> {
-    const q = input.trim() || (captureOn ? "What's on my screen right now?" : '')
+    const q = input.trim() || "What's on my screen right now?"
     if (!q || busy) return
     setInput('')
     setRequestActive(true)
     setCancelRequested(false)
     try {
       if (!activeConversationId) await newConversation()
-      await ask(q, captureOn)
+      await ask(q, true)
     } finally {
       setRequestActive(false)
     }
@@ -161,7 +161,7 @@ export default function CompanionApp(): JSX.Element {
         onPointerUp={handleFabPointerUp}
         title="Ask Buddy about your screen"
       >
-        👀
+        <Galaxy size={20} />
       </button>
     )
   }
@@ -170,22 +170,24 @@ export default function CompanionApp(): JSX.Element {
   return (
     <div className="companion-root">
       <div className="companion-header">
-          <div className="title">
-          👁 Buddy{' '}
-          {STATUS_LABEL[status] && <span style={{ color: 'var(--accent-text)' }}>· {STATUS_LABEL[status]}</span>}
+        <div className="title">
+          <Galaxy size={16} />
+          <span>Buddy</span>
+          <span className={`status-dot ${status === 'idle' ? '' : status === 'error' ? 'error' : 'busy'}`} />
+          <span className="status-label">{STATUS_LABEL[status] ?? status}</span>
         </div>
         <div className="actions">
           <button className="icon-btn" title="New chat" onClick={() => newConversation()}>
-            ＋
+            <Plus size={16} />
           </button>
           <button className="icon-btn" title="Open in full window" onClick={handleOpenInNewWindow}>
-            ⤢
+            <Maximize2 size={15} />
           </button>
           <button className="icon-btn" title="Collapse to floating button" onClick={() => buddy().companion.collapse()}>
-            –
+            <Minus size={16} />
           </button>
           <button className="icon-btn" title="Dismiss" onClick={() => buddy().companion.hide()}>
-            ✕
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -215,13 +217,6 @@ export default function CompanionApp(): JSX.Element {
               }
             }}
           />
-          <button
-            className={`composer-btn toggle ${captureOn ? 'on' : ''}`}
-            title={captureOn ? 'Capture on' : 'Capture off'}
-            onClick={() => setCaptureOn((v) => !v)}
-          >
-            👁
-          </button>
           <CapturePicker />
           <button
             className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
@@ -229,7 +224,7 @@ export default function CompanionApp(): JSX.Element {
             title={busy ? 'Cancel response' : 'Send message'}
             onClick={busy ? handleCancel : handleSend}
           >
-            {busy ? (cancelRequested ? '…' : '■') : '➤'}
+            {busy ? (cancelRequested ? <Loader2 size={15} className="spin" /> : <Square size={13} />) : <Send size={15} />}
           </button>
         </div>
       </div>

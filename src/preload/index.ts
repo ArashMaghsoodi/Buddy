@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppSettings, AskPayload, Conversation, MonitorInfo, ModelInfo, ProviderConfig, ProviderId, RegionRect, WindowInfo } from '@shared/types'
+import type { AppSettings, AskPayload, CompanionState, Conversation, MonitorInfo, ModelInfo, ProviderConfig, ProviderId, RegionRect, WindowInfo } from '@shared/types'
 
 // Everything the renderer is allowed to do lives here, explicitly. No
 // Node/Electron internals are exposed beyond these narrow, typed calls —
@@ -23,12 +23,18 @@ const api = {
     collapse: (): Promise<void> => ipcRenderer.invoke('companion:collapse'),
     hide: (): Promise<void> => ipcRenderer.invoke('companion:hide'),
     getMode: (): Promise<'fab' | 'overlay'> => ipcRenderer.invoke('companion:get-mode'),
+    getState: (): Promise<CompanionState> => ipcRenderer.invoke('companion:get-state'),
     getPosition: (): Promise<[number, number]> => ipcRenderer.invoke('companion:get-position'),
     setPosition: (x: number, y: number): Promise<void> => ipcRenderer.invoke('companion:set-position', x, y),
     onModeChange: (cb: (mode: 'fab' | 'overlay') => void) => {
       const listener = (_e: unknown, mode: 'fab' | 'overlay') => cb(mode)
       ipcRenderer.on('buddy:companion-mode', listener)
       return () => ipcRenderer.removeListener('buddy:companion-mode', listener)
+    },
+    onStateChange: (cb: (state: CompanionState) => void) => {
+      const listener = (_e: unknown, state: CompanionState) => cb(state)
+      ipcRenderer.on('buddy:companion-state', listener)
+      return () => ipcRenderer.removeListener('buddy:companion-state', listener)
     }
   },
   canvas: {

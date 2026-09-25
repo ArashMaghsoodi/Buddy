@@ -13,6 +13,11 @@ interface BuddyState {
   // stays selected in the full window and vice versa.
   captureSource: CaptureRequest | null
   setCaptureSource: (source: CaptureRequest | null) => void
+  // Master switch for whether the next message captures the screen. Lives
+  // here (not per-component) so the capture popover and the send flow share
+  // one authoritative value. Selecting a specific source also turns this on.
+  captureEnabled: boolean
+  setCaptureEnabled: (enabled: boolean) => void
 
   loadInitial: () => Promise<void>
   refreshConversations: () => Promise<void>
@@ -33,6 +38,8 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   loading: true,
   captureSource: null,
   setCaptureSource: (source) => set({ captureSource: source }),
+  captureEnabled: false,
+  setCaptureEnabled: (enabled) => set({ captureEnabled: enabled }),
 
   loadInitial: async () => {
     const [settings, conversations] = await Promise.all([
@@ -77,13 +84,17 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     set({ settings: saved })
   },
 
-  ask: async (question, captureScreen) => {
-    const { activeConversationId, captureSource } = get()
+  ask: async (question, _captureScreen) => {
+    const { activeConversationId, captureSource, captureEnabled } = get()
+    // The master switch owns whether anything is captured. A specific source
+    // is forwarded only when capture is enabled, so "screen off" always wins
+    // even if a target was previously selected.
+    const capture = captureEnabled
     const result = await buddy().ask({
       conversationId: activeConversationId,
       question,
-      captureScreen,
-      capture: captureSource ?? undefined
+      captureScreen: capture,
+      capture: capture ? (captureSource ?? undefined) : undefined
     })
     if (result?.conversationId) {
       set({ activeConversationId: result.conversationId })

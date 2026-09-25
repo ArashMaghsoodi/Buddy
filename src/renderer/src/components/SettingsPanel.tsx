@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AppSettings, ModelInfo, ProviderConfig, ProviderId } from '@shared/types'
 import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
+import { Brain, Eye, Hammer } from 'lucide-react'
 import HotkeyRecorder from './HotkeyRecorder'
 import ModelPicker from './ModelPicker'
 
@@ -192,7 +193,7 @@ export default function SettingsPanel(): JSX.Element | null {
         <div className="settings-row">
           <div>
             <div className="label">Model</div>
-            <div className="desc">👀 vision · 🧠 reasoning · 🔨 tool use</div>
+            <div className="desc"><Eye size={11} /> vision · <Brain size={11} /> reasoning · <Hammer size={11} /> tool use</div>
           </div>
           <ModelPicker
             value={activeProvider.model}
