@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
 import MessageBubble from './MessageBubble'
+import CapturePicker from './CapturePicker'
 
 const EXAMPLE_PROMPTS = [
   'What am I looking at?',
@@ -133,6 +134,7 @@ export default function ChatView(): JSX.Element {
           >
             👀 {captureOn ? 'Screen on' : 'Screen off'}
           </button>
+          <CapturePicker />
           <button
             className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
             disabled={busy ? cancelRequested : !input.trim()}

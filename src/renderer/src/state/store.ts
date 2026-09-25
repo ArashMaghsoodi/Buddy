@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppSettings, AppStatus, Conversation } from '@shared/types'
+import type { AppSettings, AppStatus, CaptureRequest, Conversation } from '@shared/types'
 import { buddy } from '../lib/ipc'
 
 interface BuddyState {
@@ -8,6 +8,11 @@ interface BuddyState {
   activeConversationId: string | null
   status: AppStatus
   loading: boolean
+  // Non-persistent capture source for the next capture (chosen per-message).
+  // Shared between the two interfaces so a source chosen in the companion
+  // stays selected in the full window and vice versa.
+  captureSource: CaptureRequest | null
+  setCaptureSource: (source: CaptureRequest | null) => void
 
   loadInitial: () => Promise<void>
   refreshConversations: () => Promise<void>
@@ -26,6 +31,8 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   activeConversationId: null,
   status: 'idle',
   loading: true,
+  captureSource: null,
+  setCaptureSource: (source) => set({ captureSource: source }),
 
   loadInitial: async () => {
     const [settings, conversations] = await Promise.all([
@@ -71,11 +78,12 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   },
 
   ask: async (question, captureScreen) => {
-    const { activeConversationId } = get()
+    const { activeConversationId, captureSource } = get()
     const result = await buddy().ask({
       conversationId: activeConversationId,
       question,
-      captureScreen
+      captureScreen,
+      capture: captureSource ?? undefined
     })
     if (result?.conversationId) {
       set({ activeConversationId: result.conversationId })

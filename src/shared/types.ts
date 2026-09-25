@@ -38,7 +38,6 @@ export interface AppSettings {
     hotkeyAnalyzeScreen: string
   }
   screen: {
-    captureMode: 'fullScreen' | 'activeWindow' | 'region'
     monitorId: string | null
     visualContextRetention: number // number of past screenshots to keep in memory per conversation
     proactiveModeEnabled: boolean
@@ -78,8 +77,12 @@ export interface ScreenshotRef {
   id: string
   createdAt: number
   dataUrl: string // base64 data URL (may be pruned depending on retention setting)
+  captureType?: 'monitor' | 'window' | 'region'
+  displayId?: string
+  windowId?: string
   activeApp?: string
   windowTitle?: string
+  region?: RegionRect
   ocrText?: string | null
 }
 
@@ -93,7 +96,49 @@ export interface Conversation {
   messages: ChatMessage[]
 }
 
-export interface CaptureResult {
+export interface MonitorInfo {
+  id: string // display_id
+  label: string // "Monitor 1", "Monitor 2", ...
+  isPrimary: boolean
+  bounds: { x: number; y: number; width: number; height: number }
+  scaleFactor: number
+  workArea: { x: number; y: number; width: number; height: number }
+}
+
+export interface WindowInfo {
+  id: string // desktopCapturer source id
+  title: string
+}
+
+export interface RegionRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Which monitor/desktop area contains the region (virtual-desktop CSS px coords). */
+export interface CaptureRegion {
+  rect: RegionRect
+}
+
+/** A unified capture request — one of three source types. */
+export type CaptureRequest =
+  | { kind: 'monitor'; displayId: string | null } // null = primary monitor
+  | { kind: 'window'; windowId: string | null }    // null = current/focused window
+  | { kind: 'region'; region: RegionRect }          // region selected by the user
+
+export interface CaptureOutcome {
+  dataUrl: string
+  captureType: 'monitor' | 'window' | 'region'
+  displayId?: string
+  windowId?: string
+  windowTitle?: string
+  activeApp?: string
+  region?: RegionRect
+}
+
+export type CaptureResult = {
   screenshot: ScreenshotRef
 }
 
@@ -103,6 +148,7 @@ export interface AskPayload {
   conversationId: string | null
   question: string
   captureScreen: boolean
+  capture?: CaptureRequest // overrides the default capture source when provided
 }
 
 export interface AskStreamChunk {
@@ -123,7 +169,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     hotkeyAnalyzeScreen: 'Alt+Shift+Space'
   },
   screen: {
-    captureMode: 'fullScreen',
     monitorId: null,
     visualContextRetention: 3,
     proactiveModeEnabled: false

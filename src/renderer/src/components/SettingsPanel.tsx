@@ -115,22 +115,6 @@ export default function SettingsPanel(): JSX.Element | null {
       <div className="settings-section">
         <h2>Screen</h2>
         <div className="settings-row">
-          <div className="label">Capture mode</div>
-          <select
-            value={local.screen.captureMode}
-            onChange={(e) =>
-              update({
-                ...local,
-                screen: { ...local.screen, captureMode: e.target.value as AppSettings['screen']['captureMode'] }
-              })
-            }
-          >
-            <option value="fullScreen">Entire display</option>
-            <option value="activeWindow">Active window</option>
-            <option value="region">Selected region (beta)</option>
-          </select>
-        </div>
-        <div className="settings-row">
           <div>
             <div className="label">Visual context retention</div>
             <div className="desc">How many recent screenshots stay available for follow-ups</div>

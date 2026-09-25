@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppSettings, AskPayload, Conversation, ModelInfo, ProviderConfig, ProviderId } from '@shared/types'
+import type { AppSettings, AskPayload, Conversation, MonitorInfo, ModelInfo, ProviderConfig, ProviderId, RegionRect, WindowInfo } from '@shared/types'
 
 // Everything the renderer is allowed to do lives here, explicitly. No
 // Node/Electron internals are exposed beyond these narrow, typed calls —
@@ -31,9 +31,18 @@ const api = {
       return () => ipcRenderer.removeListener('buddy:companion-mode', listener)
     }
   },
+  canvas: {
+    completeRegion: (rect: RegionRect): void => ipcRenderer.send('region:complete', rect),
+    cancelRegion: (): void => ipcRenderer.send('region:cancel')
+  },
   ai: {
     fetchModels: (providerId: ProviderId, config: ProviderConfig): Promise<ModelInfo[]> =>
       ipcRenderer.invoke('ai:fetch-models', providerId, config)
+  },
+  captures: {
+    listMonitors: (): Promise<MonitorInfo[]> => ipcRenderer.invoke('captures:list-monitors'),
+    listWindows: (): Promise<WindowInfo[]> => ipcRenderer.invoke('captures:list-windows'),
+    selectRegion: (): Promise<RegionRect | null> => ipcRenderer.invoke('captures:select-region')
   },
   cancel: (): Promise<void> => ipcRenderer.invoke('buddy:cancel'),
   mainWindow: {

@@ -17,15 +17,27 @@ class ContextManager {
   addScreenshot(
     conversationId: string,
     dataUrl: string,
-    meta: { activeApp?: string; windowTitle?: string; ocrText?: string | null },
+    meta: {
+      activeApp?: string
+      windowTitle?: string
+      ocrText?: string | null
+      captureType?: 'monitor' | 'window' | 'region'
+      displayId?: string
+      windowId?: string
+      region?: ScreenshotRef['region']
+    },
     retentionCount: number
   ): ScreenshotRef {
     const ref: ScreenshotRef = {
       id: nanoid(),
       createdAt: Date.now(),
       dataUrl,
+      captureType: meta.captureType,
+      displayId: meta.displayId,
+      windowId: meta.windowId,
       activeApp: meta.activeApp,
       windowTitle: meta.windowTitle,
+      region: meta.region,
       ocrText: meta.ocrText ?? null
     }
     const list = this.screenshotsByConversation.get(conversationId) ?? []

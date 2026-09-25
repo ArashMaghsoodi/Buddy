@@ -1,6 +1,15 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, screen } from 'electron'
 import { nanoid } from 'nanoid'
-import type { AskPayload, ChatMessage, Conversation, ProviderConfig, ProviderId } from '@shared/types'
+import type {
+  AskPayload,
+  ChatMessage,
+  Conversation,
+  MonitorInfo,
+  ProviderConfig,
+  ProviderId,
+  RegionRect,
+  WindowInfo
+} from '@shared/types'
 import {
   getSettings,
   saveSettings,
@@ -13,7 +22,8 @@ import {
   searchConversations
 } from './store'
 import { contextManager } from './contextManager'
-import { captureScreen } from './screenCapture'
+import { captureScreen, executeCapture } from './screenCapture'
+import { selectRegion, completeRegionSelection, dismissOverlay } from './regionOverlay'
 import { getProvider, SYSTEM_PROMPT } from './providers'
 import { ProviderError } from './providers/types'
 import {
@@ -108,6 +118,53 @@ export function registerIpcHandlers(): void {
     return provider.listModels(config)
   })
 
+  // ---- Capture enumeration & region selection ----
+  ipcMain.handle('captures:list-monitors', (): MonitorInfo[] => {
+    const primary = screen.getPrimaryDisplay()
+    return screen.getAllDisplays().map((d, i) => ({
+      id: String(d.id),
+      label: `Monitor ${i + 1}${d.id === primary.id ? ' (primary)' : ''}`,
+      isPrimary: d.id === primary.id,
+      bounds: d.bounds,
+      scaleFactor: d.scaleFactor,
+      workArea: d.workArea
+    }))
+  })
+
+  ipcMain.handle('captures:list-windows', async (): Promise<WindowInfo[]> => {
+    const isOverlayWindow = (name: string): boolean =>
+      /cue\.agentcursoroverlay\.default/i.test(name) || /nvidia geForce overlay/i.test(name)
+    const { desktopCapturer } = await import('electron')
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 0, height: 0 },
+      fetchWindowIcons: false
+    })
+    const buddyTitles = new Set(
+      BrowserWindow.getAllWindows()
+        .map((w) => w.getTitle())
+        .filter(Boolean)
+    )
+
+    // Invisible overlay / virtual-driver windows that desktopCapturer
+    // reports but that are never user-focusable and produce no useful
+    // screenshot. Filtered by distinctive substrings (case-insensitive)
+    // so vendor overlay variants are all caught.
+    return sources
+      .filter((s) => !buddyTitles.has(s.name) && !isOverlayWindow(s.name))
+      .map((s) => ({ id: s.id, title: s.name }))
+  })
+
+  ipcMain.handle('captures:select-region', async (): Promise<RegionRect | null> => {
+    return selectRegion()
+  })
+  ipcMain.on('region:complete', (event, rect: RegionRect) => {
+    completeRegionSelection(event, rect)
+  })
+  ipcMain.on('region:cancel', () => {
+    dismissOverlay()
+  })
+
   // ---- Overlay → maximized window handoff ----
   ipcMain.handle('window:open-conversation', (_e, conversationId: string) => {
     openConversationInMainWindow(conversationId)
@@ -116,20 +173,24 @@ export function registerIpcHandlers(): void {
 
   // ---- Core ask/analyze flow ----
   ipcMain.handle('buddy:ask', async (event, payload: AskPayload) => {
-    const request = { controller: new AbortController(), cancelled: false }
+    const request: { controller: AbortController; cancelled: boolean; onCancel?: () => void } = {
+      controller: new AbortController(),
+      cancelled: false
+    }
     activeRequest = request
     const settings = getSettings()
-    let conversation = payload.conversationId ? getConversation(payload.conversationId) : undefined
-
-    if (!conversation) {
-      conversation = createConversation(settings.ai.activeProvider, settings.ai.providers[settings.ai.activeProvider].model)
-    }
+    const existing = payload.conversationId ? getConversation(payload.conversationId) : undefined
+    const conversation = existing ?? createConversation(
+      settings.ai.activeProvider,
+      settings.ai.providers[settings.ai.activeProvider].model
+    )
 
     const conversationId = conversation.id
     let imageDataUrl: string | null = null
     let ocrText: string | null = null
     let activeApp: string | undefined
     let windowTitle: string | undefined
+    let captureNote: string | undefined
     let assistantMessage: ChatMessage | null = null
     let cancellationFinalized = false
 
@@ -146,15 +207,27 @@ export function registerIpcHandlers(): void {
     try {
       if (payload.captureScreen) {
         broadcastStatus('capturing')
-        const capture = await captureScreen(settings)
+        const capture = payload.capture
+          ? await executeCapture(payload.capture)
+          : await captureScreen(settings)
         imageDataUrl = capture.dataUrl
         activeApp = capture.activeApp
         windowTitle = capture.windowTitle
+        const captureType = capture.captureType
+        const region = capture.region
+        const displayId = capture.displayId
+        const windowId = capture.windowId
 
+        captureNote =
+          captureType === 'window'
+            ? `Current window: ${windowTitle ?? 'unknown'}`
+            : captureType === 'region'
+              ? `Screen region${windowTitle ? ` of "${windowTitle}"` : ''}`
+              : 'Full monitor'
         const ref = contextManager.addScreenshot(
           conversationId,
           capture.dataUrl,
-          { activeApp, windowTitle, ocrText },
+          { activeApp, windowTitle, ocrText, captureType, displayId, windowId, region },
           settings.screen.visualContextRetention
         )
         void ref
@@ -193,8 +266,12 @@ export function registerIpcHandlers(): void {
 
       broadcastStatus('thinking')
       const contextNote =
-        activeApp || windowTitle
-          ? `\n\n[Context: active application "${activeApp ?? 'unknown'}", window "${windowTitle ?? 'unknown'}"]`
+        captureNote || activeApp || windowTitle
+          ? `\n\n[Context: ${captureNote ?? 'captured screenshot'}${
+              activeApp || windowTitle
+                ? `, active application "${activeApp ?? 'unknown'}", window "${windowTitle ?? 'unknown'}"`
+                : ''
+            }]`
           : ''
 
       assistantMessage = {
