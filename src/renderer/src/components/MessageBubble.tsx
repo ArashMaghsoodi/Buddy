@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 export default function MessageBubble({ message }: { message: ChatMessage }): JSX.Element {
   const isUser = message.role === 'user'
   const [imageOpen, setImageOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!imageOpen) return
@@ -16,6 +17,18 @@ export default function MessageBubble({ message }: { message: ChatMessage }): JS
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [imageOpen])
+
+  async function handleCopy(): Promise<void> {
+    if (!message.content) return
+    try {
+      await navigator.clipboard.writeText(message.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard may be unavailable in some embedded/limited contexts;
+      // degrade silently rather than interrupting the flow.
+    }
+  }
 
   return (
     <div className={`msg-row ${isUser ? 'user' : 'assistant'}`}>
@@ -41,6 +54,29 @@ export default function MessageBubble({ message }: { message: ChatMessage }): JS
             <ReactMarkdown>{message.content}</ReactMarkdown>
           )}
         </div>
+        {message.content && (
+          <div className="msg-actions">
+            <button
+              type="button"
+              className={`msg-action ${copied ? 'copied' : ''}`}
+              title="Copy message text"
+              aria-label="Copy message text"
+              onClick={() => void handleCopy()}
+            >
+              {copied ? (
+                <>
+                  <span className="msg-action-icon">✓</span>
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <span className="msg-action-icon">⧉</span>
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
       {imageOpen && message.screenshotDataUrl && (
         <div className="image-lightbox" role="dialog" aria-modal="true" aria-label="Captured screen preview">
