@@ -28,6 +28,12 @@ interface BuddyState {
   setStatus: (status: AppStatus) => void
   deleteConversation: (id: string) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
+  selectSibling: (messageId: string, direction: -1 | 1) => Promise<void>
+  branchFrom: (messageId: string) => Promise<void>
+  editMessage: (messageId: string, content: string) => Promise<void>
+  regenerateMessage: (messageId: string) => Promise<void>
+  selectMessage: (messageId: string) => Promise<void>
+  deleteSubtree: (messageId: string) => Promise<void>
 }
 
 export const useBuddyStore = create<BuddyState>((set, get) => ({
@@ -68,7 +74,22 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
   },
 
   selectConversation: async (id) => {
-    set({ activeConversationId: id })
+    if (!id) {
+      set({ activeConversationId: null })
+      return
+    }
+    const latest = await buddy().conversations.get(id)
+    set((state) => {
+      if (!latest) return { activeConversationId: id, conversations: state.conversations }
+
+      const exists = state.conversations.some((conversation) => conversation.id === id)
+      return {
+        activeConversationId: id,
+        conversations: exists
+          ? state.conversations.map((conversation) => (conversation.id === id ? latest : conversation))
+          : [...state.conversations, latest]
+      }
+    })
   },
 
   newConversation: async () => {
@@ -119,5 +140,47 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     set((state) => ({
       conversations: state.conversations.map((c) => (c.id === id ? { ...c, title } : c))
     }))
+  },
+  selectSibling: async (messageId, direction) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().conversations.selectSibling(activeConversationId, messageId, direction)
+  },
+  branchFrom: async (messageId) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().conversations.branchFrom(activeConversationId, messageId)
+  },
+  editMessage: async (messageId, content) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().ask({
+      conversationId: activeConversationId,
+      question: content,
+      captureScreen: false,
+      editMessageId: messageId
+    })
+    await get().refreshConversations()
+  },
+  regenerateMessage: async (messageId) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().ask({
+      conversationId: activeConversationId,
+      question: '',
+      captureScreen: false,
+      regenerateMessageId: messageId
+    })
+    await get().refreshConversations()
+  },
+  selectMessage: async (messageId) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().conversations.selectMessage(activeConversationId, messageId)
+  },
+  deleteSubtree: async (messageId) => {
+    const { activeConversationId } = get()
+    if (!activeConversationId) return
+    await buddy().conversations.deleteSubtree(activeConversationId, messageId)
   }
 }))

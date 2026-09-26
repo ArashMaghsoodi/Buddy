@@ -103,7 +103,11 @@ export class OpenAICompatibleProvider implements VisionProvider {
     const messages: Array<Record<string, unknown>> = [{ role: 'system', content: systemPrompt }]
     for (const m of history) {
       if (m.role === 'system') continue
-      messages.push({ role: m.role, content: m.content })
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: m.content }]
+      if (m.role === 'user' && m.screenshotDataUrl) {
+        content.push({ type: 'image_url', image_url: { url: m.screenshotDataUrl } })
+      }
+      messages.push({ role: m.role, content: content.length === 1 ? m.content : content })
     }
 
     let text = question
@@ -170,7 +174,12 @@ export class OpenAICompatibleProvider implements VisionProvider {
 
     const messages: Array<Record<string, unknown>> = [{ role: 'system', content: systemPrompt }]
     for (const message of history) {
-      if (message.role !== 'system') messages.push({ role: message.role, content: message.content })
+      if (message.role === 'system') continue
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: message.content }]
+      if (message.role === 'user' && message.screenshotDataUrl) {
+        content.push({ type: 'image_url', image_url: { url: message.screenshotDataUrl } })
+      }
+      messages.push({ role: message.role, content: content.length === 1 ? message.content : content })
     }
     let text = question
     if (ocrText?.trim()) text += `\n\n[OCR-extracted text from the screen, may be partial or noisy]\n${ocrText.slice(0, 4000)}`

@@ -3,7 +3,7 @@ import type { ChatMessage, ModelInfo, ProviderConfig } from '@shared/types'
 export interface VisionChatInput {
   config: ProviderConfig
   systemPrompt: string
-  history: ChatMessage[] // prior text-only messages for conversational context
+  history: ChatMessage[] // prior messages and any retained visual attachments on the selected path
   question: string
   imageDataUrl?: string | null // the current screenshot, if any, as a data URL
   ocrText?: string | null

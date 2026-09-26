@@ -5,12 +5,13 @@ import Sidebar from './components/Sidebar'
 import ChatView from './components/ChatView'
 import SettingsPanel from './components/SettingsPanel'
 import TitleBar from './components/TitleBar'
+import ConversationTreeView from './components/ConversationTreeView'
 
 export default function App(): JSX.Element {
   const loadInitial = useBuddyStore((s) => s.loadInitial)
   const loading = useBuddyStore((s) => s.loading)
   const selectConversation = useBuddyStore((s) => s.selectConversation)
-  const [view, setView] = useState<'chat' | 'settings'>('chat')
+  const [view, setView] = useState<'chat' | 'tree' | 'settings'>('chat')
 
   useEffect(() => {
     loadInitial()
@@ -51,7 +52,7 @@ export default function App(): JSX.Element {
       <TitleBar />
       <Sidebar view={view} onChangeView={setView} />
       <div className="main-pane">
-        {view === 'chat' ? <ChatView /> : <SettingsPanel />}
+        {view === 'chat' ? <ChatView /> : view === 'tree' ? <ConversationTreeView /> : <SettingsPanel />}
       </div>
     </div>
   )

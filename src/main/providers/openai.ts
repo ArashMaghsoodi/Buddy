@@ -21,7 +21,11 @@ export class OpenAIProvider implements VisionProvider {
 
     for (const m of history) {
       if (m.role === 'system') continue
-      messages.push({ role: m.role, content: m.content })
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: m.content }]
+      if (m.role === 'user' && m.screenshotDataUrl) {
+        content.push({ type: 'image_url', image_url: { url: m.screenshotDataUrl } })
+      }
+      messages.push({ role: m.role, content: content.length === 1 ? m.content : content })
     }
 
     const userContent: Array<Record<string, unknown>> = []

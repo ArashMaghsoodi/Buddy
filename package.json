@@ -13,7 +13,8 @@
     "build": "electron-vite build",
     "build:win": "electron-vite build && electron-builder --win",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test:tree": "node --experimental-strip-types --test tests/conversationTree.test.ts"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

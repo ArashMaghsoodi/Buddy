@@ -63,6 +63,7 @@ export type MessageRole = 'user' | 'assistant' | 'system'
 
 export interface ChatMessage {
   id: string
+  parentId: string | null
   role: MessageRole
   content: string
   createdAt: number
@@ -94,6 +95,9 @@ export interface Conversation {
   provider: ProviderId
   model: string
   messages: ChatMessage[]
+  selectedChildren: Record<string, string>
+  activeMessageId: string | null
+  branchDraftParentId: string | null
 }
 
 export interface MonitorInfo {
@@ -155,6 +159,8 @@ export interface AskPayload {
   question: string
   captureScreen: boolean
   capture?: CaptureRequest // overrides the default capture source when provided
+  editMessageId?: string
+  regenerateMessageId?: string
 }
 
 export interface AskStreamChunk {

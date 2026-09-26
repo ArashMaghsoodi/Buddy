@@ -4,6 +4,8 @@ import { buddy } from '../lib/ipc'
 import { Galaxy, Loader2, Maximize2, Minus, Plus, Send, Square, X } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import CapturePicker from './CapturePicker'
+import { getActivePath, getSiblings } from '@shared/conversationTree'
+import { shouldHideEmptyAssistantMessage } from '@shared/messageUi'
 
 type CompanionMode = 'fab' | 'overlay'
 
@@ -23,6 +25,10 @@ export default function CompanionApp(): JSX.Element {
   const conversations = useBuddyStore((s) => s.conversations)
   const activeConversationId = useBuddyStore((s) => s.activeConversationId)
   const ask = useBuddyStore((s) => s.ask)
+  const selectSibling = useBuddyStore((s) => s.selectSibling)
+  const branchFrom = useBuddyStore((s) => s.branchFrom)
+  const editMessage = useBuddyStore((s) => s.editMessage)
+  const regenerateMessage = useBuddyStore((s) => s.regenerateMessage)
   const newConversation = useBuddyStore((s) => s.newConversation)
   const [mode, setMode] = useState<CompanionMode>('fab')
   const [input, setInput] = useState('')
@@ -42,6 +48,7 @@ export default function CompanionApp(): JSX.Element {
   } | null>(null)
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
+  const activePath = conversation ? getActivePath(conversation) : []
   const busy = requestActive || (status !== 'idle' && status !== 'error')
 
   useEffect(() => {
@@ -193,12 +200,28 @@ export default function CompanionApp(): JSX.Element {
       </div>
 
       <div className="companion-chat" ref={scrollRef}>
-        {!conversation || conversation.messages.length === 0 ? (
+        {!conversation || activePath.length === 0 ? (
           <div className="companion-empty">
             Ask me anything about your screen — I'll take a look and answer.
           </div>
         ) : (
-          conversation.messages.map((m) => <MessageBubble key={m.id} message={m} />)
+          activePath
+            .filter((m) => !shouldHideEmptyAssistantMessage(m, status, requestActive, cancelRequested))
+            .map((m) => {
+              const siblings = getSiblings(conversation, m.id)
+              return (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  siblingIndex={siblings.findIndex((sibling) => sibling.id === m.id)}
+                  siblingCount={siblings.length}
+                  onSelectSibling={(id, direction) => void selectSibling(id, direction)}
+                  onBranchFromHere={(id) => void branchFrom(id)}
+                  onEdit={(id, content) => void editMessage(id, content)}
+                  onRegenerate={(id) => void regenerateMessage(id)}
+                />
+              )
+            })
         )}
       </div>
 

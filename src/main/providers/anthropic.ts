@@ -28,7 +28,17 @@ export class AnthropicProvider implements VisionProvider {
     const messages: Array<Record<string, unknown>> = []
     for (const m of history) {
       if (m.role === 'system') continue
-      messages.push({ role: m.role, content: m.content })
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: m.content }]
+      if (m.role === 'user' && m.screenshotDataUrl) {
+        const match = /^data:(image\/\w+);base64,(.*)$/.exec(m.screenshotDataUrl)
+        if (match) {
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: match[1], data: match[2] }
+          })
+        }
+      }
+      messages.push({ role: m.role, content: content.length === 1 ? m.content : content })
     }
 
     let text = question

@@ -15,6 +15,14 @@ const api = {
     create: (): Promise<Conversation> => ipcRenderer.invoke('conversations:create'),
     rename: (id: string, title: string): Promise<void> => ipcRenderer.invoke('conversations:rename', id, title),
     delete: (id: string): Promise<void> => ipcRenderer.invoke('conversations:delete', id),
+    selectSibling: (id: string, messageId: string, direction: -1 | 1): Promise<Conversation | undefined> =>
+      ipcRenderer.invoke('conversations:select-sibling', id, messageId, direction),
+    branchFrom: (id: string, messageId: string): Promise<Conversation | undefined> =>
+      ipcRenderer.invoke('conversations:branch-from', id, messageId),
+    selectMessage: (id: string, messageId: string): Promise<Conversation | undefined> =>
+      ipcRenderer.invoke('conversations:select-message', id, messageId),
+    deleteSubtree: (id: string, messageId: string): Promise<Conversation | undefined> =>
+      ipcRenderer.invoke('conversations:delete-subtree', id, messageId),
     search: (query: string): Promise<Conversation[]> => ipcRenderer.invoke('conversations:search', query)
   },
   companion: {
@@ -29,12 +37,16 @@ const api = {
     onModeChange: (cb: (mode: 'fab' | 'overlay') => void) => {
       const listener = (_e: unknown, mode: 'fab' | 'overlay') => cb(mode)
       ipcRenderer.on('buddy:companion-mode', listener)
-      return () => ipcRenderer.removeListener('buddy:companion-mode', listener)
+      return () => {
+        ipcRenderer.removeListener('buddy:companion-mode', listener)
+      }
     },
     onStateChange: (cb: (state: CompanionState) => void) => {
       const listener = (_e: unknown, state: CompanionState) => cb(state)
       ipcRenderer.on('buddy:companion-state', listener)
-      return () => ipcRenderer.removeListener('buddy:companion-state', listener)
+      return () => {
+        ipcRenderer.removeListener('buddy:companion-state', listener)
+      }
     }
   },
   canvas: {
@@ -59,24 +71,32 @@ const api = {
     onOpenConversation: (cb: (conversationId: string) => void) => {
       const listener = (_e: unknown, id: string) => cb(id)
       ipcRenderer.on('buddy:open-conversation', listener)
-      return () => ipcRenderer.removeListener('buddy:open-conversation', listener)
+      return () => {
+        ipcRenderer.removeListener('buddy:open-conversation', listener)
+      }
     }
   },
   ask: (payload: AskPayload) => ipcRenderer.invoke('buddy:ask', payload),
   onStatus: (cb: (status: string) => void) => {
     const listener = (_e: unknown, status: string) => cb(status)
     ipcRenderer.on('buddy:status', listener)
-    return () => ipcRenderer.removeListener('buddy:status', listener)
+    return () => {
+      ipcRenderer.removeListener('buddy:status', listener)
+    }
   },
   onConversationUpdated: (cb: (conversation: Conversation) => void) => {
     const listener = (_e: unknown, conversation: Conversation) => cb(conversation)
     ipcRenderer.on('buddy:conversation-updated', listener)
-    return () => ipcRenderer.removeListener('buddy:conversation-updated', listener)
+    return () => {
+      ipcRenderer.removeListener('buddy:conversation-updated', listener)
+    }
   },
   onTriggerAnalyze: (cb: () => void) => {
     const listener = () => cb()
     ipcRenderer.on('buddy:trigger-analyze', listener)
-    return () => ipcRenderer.removeListener('buddy:trigger-analyze', listener)
+    return () => {
+      ipcRenderer.removeListener('buddy:trigger-analyze', listener)
+    }
   }
 }
 

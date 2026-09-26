@@ -75,6 +75,26 @@ export default function CapturePicker(): JSX.Element {
     setCaptureSource(source)
   }
 
+  async function setCaptureToggle(enabled: boolean): Promise<void> {
+    if (!enabled) {
+      setCaptureEnabled(false)
+      return
+    }
+
+    if (!captureSource) {
+      try {
+        const availableMonitors = monitors.length > 0 ? monitors : await buddy().captures.listMonitors()
+        setMonitors(availableMonitors)
+        const primaryMonitor = availableMonitors.find((monitor) => monitor.isPrimary) ?? availableMonitors[0]
+        setCaptureSource({ kind: 'monitor', displayId: primaryMonitor?.id ?? null })
+      } catch {
+        setCaptureSource({ kind: 'monitor', displayId: null })
+      }
+    }
+
+    setCaptureEnabled(true)
+  }
+
   async function chooseRegion(): Promise<void> {
     try {
       const rect = await buddy().captures.selectRegion()
@@ -109,7 +129,7 @@ export default function CapturePicker(): JSX.Element {
               <input
                 type="checkbox"
                 checked={captureEnabled}
-                onChange={(e) => setCaptureEnabled(e.target.checked)}
+                onChange={(e) => void setCaptureToggle(e.target.checked)}
               />
               <span className="track">
                 <span className="thumb" />
@@ -192,10 +212,10 @@ export default function CapturePicker(): JSX.Element {
 }
 
 function describeSource(source: CaptureRequest | null): string {
-  if (!source) return 'Default'
+  if (!source) return 'Primary monitor'
   switch (source.kind) {
     case 'monitor':
-      return 'Monitor'
+      return source.displayId ? 'Monitor' : 'Primary monitor'
     case 'window':
       return source.windowId ? 'Window' : 'Current window'
     case 'region':

@@ -17,20 +17,24 @@ export class GoogleProvider implements VisionProvider {
       throw new ProviderError('Missing Google API key. Add one in Settings → AI.', this.id)
     }
 
-    const historyText = history
-      .filter((m) => m.role !== 'system')
-      .slice(-8)
-      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-      .join('\n')
+    const historyMessages = history.filter((message) => message.role !== 'system').slice(-8)
 
     let text = question
     if (ocrText && ocrText.trim().length > 0) {
       text += `\n\n[OCR-extracted text from the screen, may be partial or noisy]\n${ocrText.slice(0, 4000)}`
     }
 
+    const historyText = historyMessages
+      .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
+      .join('\n')
     const parts: Array<Record<string, unknown>> = [
       { text: `${systemPrompt}\n\n${historyText ? `Conversation so far:\n${historyText}\n\n` : ''}${text}` }
     ]
+    for (const message of historyMessages) {
+      if (message.role !== 'user' || !message.screenshotDataUrl) continue
+      const match = /^data:(image\/\w+);base64,(.*)$/.exec(message.screenshotDataUrl)
+      if (match) parts.push({ inline_data: { mime_type: match[1], data: match[2] } })
+    }
     if (imageDataUrl) {
       const match = /^data:(image\/\w+);base64,(.*)$/.exec(imageDataUrl)
       if (match) {

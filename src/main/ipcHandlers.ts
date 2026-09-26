@@ -11,6 +11,14 @@ import type {
   WindowInfo
 } from '@shared/types'
 import {
+  appendMessage,
+  getPathToMessage,
+  getSubtreeMessageIds,
+  selectSibling,
+  setActiveMessage,
+  setBranchDraft
+} from '@shared/conversationTree'
+import {
   getSettings,
   saveSettings,
   listConversations,
@@ -78,6 +86,58 @@ export function registerIpcHandlers(): void {
     contextManager.clear(id)
   })
   ipcMain.handle('conversations:search', (_e, query: string) => searchConversations(query))
+  ipcMain.handle('conversations:select-sibling', (_e, id: string, messageId: string, direction: -1 | 1) => {
+    const conversation = getConversation(id)
+    if (!conversation || !selectSibling(conversation, messageId, direction)) return conversation
+    conversation.updatedAt = Date.now()
+    upsertConversation(conversation)
+    broadcastConversationUpdated(conversation)
+    return conversation
+  })
+  ipcMain.handle('conversations:branch-from', (_e, id: string, messageId: string) => {
+    const conversation = getConversation(id)
+    if (!conversation || !setBranchDraft(conversation, messageId)) return conversation
+    conversation.updatedAt = Date.now()
+    upsertConversation(conversation)
+    broadcastConversationUpdated(conversation)
+    return conversation
+  })
+  ipcMain.handle('conversations:select-message', (_e, id: string, messageId: string) => {
+    const conversation = getConversation(id)
+    if (!conversation || !conversation.messages.some((message) => message.id === messageId)) return conversation
+    setActiveMessage(conversation, messageId)
+    conversation.updatedAt = Date.now()
+    upsertConversation(conversation)
+    broadcastConversationUpdated(conversation)
+    return conversation
+  })
+  ipcMain.handle('conversations:delete-subtree', (_e, id: string, messageId: string) => {
+    const conversation = getConversation(id)
+    const subtreeRoot = conversation?.messages.find((message) => message.id === messageId)
+    if (!conversation || !subtreeRoot) return conversation
+
+    const deletedIds = getSubtreeMessageIds(conversation, messageId)
+    conversation.messages = conversation.messages.filter((message) => !deletedIds.has(message.id))
+    conversation.selectedChildren = Object.fromEntries(
+      Object.entries(conversation.selectedChildren).filter(([parentKey, childId]) =>
+        !deletedIds.has(childId) && (parentKey === '$root' || !deletedIds.has(parentKey))
+      )
+    )
+    if (conversation.branchDraftParentId && deletedIds.has(conversation.branchDraftParentId)) {
+      conversation.branchDraftParentId = null
+    }
+    if (conversation.activeMessageId && deletedIds.has(conversation.activeMessageId)) {
+      const fallback = subtreeRoot.parentId
+        ? conversation.messages.find((message) => message.id === subtreeRoot.parentId)
+        : conversation.messages.find((message) => message.parentId === null)
+      conversation.activeMessageId = fallback?.id ?? null
+      if (fallback) setActiveMessage(conversation, fallback.id)
+    }
+    conversation.updatedAt = Date.now()
+    upsertConversation(conversation)
+    broadcastConversationUpdated(conversation)
+    return conversation
+  })
   ipcMain.handle('conversations:create', () => {
     const settings = getSettings()
     const providerConfig = settings.ai.providers[settings.ai.activeProvider]
@@ -183,7 +243,6 @@ export function registerIpcHandlers(): void {
       controller: new AbortController(),
       cancelled: false
     }
-    activeRequest = request
     const settings = getSettings()
     const existing = payload.conversationId ? getConversation(payload.conversationId) : undefined
     const conversation = existing ?? createConversation(
@@ -191,19 +250,41 @@ export function registerIpcHandlers(): void {
       settings.ai.providers[settings.ai.activeProvider].model
     )
 
+    const editTarget = payload.editMessageId
+      ? conversation.messages.find((message) => message.id === payload.editMessageId && message.role === 'user')
+      : undefined
+    const regenerationTarget = payload.regenerateMessageId
+      ? conversation.messages.find((message) => message.id === payload.regenerateMessageId && message.role === 'assistant')
+      : undefined
+    const regenerationUser = regenerationTarget
+      ? conversation.messages.find((message) => message.id === regenerationTarget.parentId && message.role === 'user')
+      : undefined
+    if (payload.editMessageId && !editTarget) throw new Error('The user message to edit could not be found.')
+    if (payload.regenerateMessageId && (!regenerationTarget || !regenerationUser)) {
+      throw new Error('The assistant response or its user message could not be found.')
+    }
+    activeRequest = request
+    const userParentId = editTarget
+      ? editTarget.parentId
+      : conversation.branchDraftParentId ?? conversation.activeMessageId
+    const contextParentId = regenerationUser ? regenerationUser.parentId : userParentId
+    const priorMessages = contextParentId ? getPathToMessage(conversation, contextParentId) : []
+    const requestQuestion = regenerationUser?.content ?? payload.question
+
     const conversationId = conversation.id
     let imageDataUrl: string | null = null
     let ocrText: string | null = null
     let activeApp: string | undefined
     let windowTitle: string | undefined
     let captureNote: string | undefined
+    let screenshotId: string | null = null
     let assistantMessage: ChatMessage | null = null
     let cancellationFinalized = false
 
     function finalizeCancellation(): void {
       if (cancellationFinalized || !assistantMessage) return
       cancellationFinalized = true
-      assistantMessage.content += `${assistantMessage.content ? '\n\n' : ''}*canceled by user*`
+      assistantMessage.content = '*canceled by user*'
       conversation.updatedAt = Date.now()
       upsertConversation(conversation)
       broadcastConversationUpdated(conversation)
@@ -236,32 +317,33 @@ export function registerIpcHandlers(): void {
           { activeApp, windowTitle, ocrText, captureType, displayId, windowId, region },
           settings.screen.visualContextRetention
         )
-        void ref
+        screenshotId = ref.id
       } else {
-        // No new capture — reuse the most recent screenshot in this
-        // conversation so follow-ups ("why?", "what about k?") still have
-        // visual grounding.
-        const latest = contextManager.latest(conversationId)
-        if (latest) {
-          imageDataUrl = latest.dataUrl
-          ocrText = latest.ocrText ?? null
-          activeApp = latest.activeApp
-          windowTitle = latest.windowTitle
+        const visualMessage =
+          (regenerationUser?.screenshotDataUrl ? regenerationUser : undefined) ??
+          (editTarget?.screenshotDataUrl ? editTarget : undefined) ??
+          [...priorMessages].reverse().find((message) => message.screenshotDataUrl)
+        if (visualMessage?.screenshotDataUrl) {
+          imageDataUrl = visualMessage.screenshotDataUrl
+          screenshotId = visualMessage.screenshotId ?? null
         }
       }
 
-      const userMessage: ChatMessage = {
-        id: nanoid(),
-        role: 'user',
-        content: payload.question,
-        createdAt: Date.now(),
-        screenshotId: imageDataUrl ? 'latest' : null,
-        screenshotDataUrl: payload.captureScreen ? imageDataUrl : null
+      if (!regenerationTarget) {
+        const userMessage: ChatMessage = {
+          id: nanoid(),
+          parentId: userParentId,
+          role: 'user',
+          content: requestQuestion,
+          createdAt: Date.now(),
+          screenshotId: payload.captureScreen ? screenshotId : editTarget?.screenshotId ?? null,
+          screenshotDataUrl: payload.captureScreen ? imageDataUrl : editTarget?.screenshotDataUrl ?? null
+        }
+        appendMessage(conversation, userMessage, userParentId)
       }
-      conversation.messages.push(userMessage)
       conversation.updatedAt = Date.now()
       if (conversation.title === 'New conversation') {
-        conversation.title = payload.question.slice(0, 60)
+        conversation.title = requestQuestion.slice(0, 60)
       }
       upsertConversation(conversation)
       broadcastConversationUpdated(conversation)
@@ -280,15 +362,20 @@ export function registerIpcHandlers(): void {
             }]`
           : ''
 
-      assistantMessage = {
+      const createdAssistantMessage: ChatMessage = {
         id: nanoid(),
+        parentId: regenerationTarget ? regenerationTarget.parentId : conversation.activeMessageId,
         role: 'assistant',
         content: '',
         createdAt: Date.now(),
         provider: settings.ai.activeProvider,
         model: providerConfig.model
       }
-      conversation.messages.push(assistantMessage)
+      assistantMessage = appendMessage(
+        conversation,
+        createdAssistantMessage,
+        regenerationTarget ? regenerationTarget.parentId : conversation.activeMessageId
+      )
       upsertConversation(conversation)
       broadcastConversationUpdated(conversation)
       request.onCancel = finalizeCancellation
@@ -297,8 +384,8 @@ export function registerIpcHandlers(): void {
       const input = {
         config: providerConfig,
         systemPrompt: SYSTEM_PROMPT,
-        history: conversation.messages.slice(0, -1),
-        question: payload.question + contextNote,
+        history: priorMessages,
+        question: requestQuestion + contextNote,
         imageDataUrl,
         ocrText,
         signal: request.controller.signal
@@ -306,6 +393,7 @@ export function registerIpcHandlers(): void {
 
       if (provider.streamChat) {
         await provider.streamChat(input, (delta) => {
+          if (request.cancelled || cancellationFinalized) return
           assistantMessage!.content += delta
           conversation.updatedAt = Date.now()
           upsertConversation(conversation)
@@ -313,6 +401,10 @@ export function registerIpcHandlers(): void {
         })
       } else {
         const result = await provider.chat(input)
+        if (request.cancelled) {
+          finalizeCancellation()
+          return { conversationId, message: assistantMessage }
+        }
         assistantMessage.content = result.text
         conversation.updatedAt = Date.now()
         upsertConversation(conversation)
@@ -346,12 +438,13 @@ export function registerIpcHandlers(): void {
 
       const errorMessage: ChatMessage = {
         id: nanoid(),
+        parentId: conversation.activeMessageId,
         role: 'assistant',
         content: '',
         createdAt: Date.now(),
         error: message
       }
-      conversation.messages.push(errorMessage)
+      appendMessage(conversation, errorMessage)
       upsertConversation(conversation)
       broadcastConversationUpdated(conversation)
       return { conversationId, message: errorMessage, error: message }

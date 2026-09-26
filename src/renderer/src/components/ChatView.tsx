@@ -4,6 +4,8 @@ import { buddy } from '../lib/ipc'
 import { Loader2, Send, Square } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import CapturePicker from './CapturePicker'
+import { getActivePath, getSiblings } from '@shared/conversationTree'
+import { shouldHideEmptyAssistantMessage, shouldShowStatusBubble } from '@shared/messageUi'
 
 const EXAMPLE_PROMPTS = [
   'What am I looking at?',
@@ -44,6 +46,10 @@ export default function ChatView(): JSX.Element {
   const activeConversationId = useBuddyStore((s) => s.activeConversationId)
   const conversations = useBuddyStore((s) => s.conversations)
   const ask = useBuddyStore((s) => s.ask)
+  const selectSibling = useBuddyStore((s) => s.selectSibling)
+  const branchFrom = useBuddyStore((s) => s.branchFrom)
+  const editMessage = useBuddyStore((s) => s.editMessage)
+  const regenerateMessage = useBuddyStore((s) => s.regenerateMessage)
   const status = useBuddyStore((s) => s.status)
   const [input, setInput] = useState('')
   const [requestActive, setRequestActive] = useState(false)
@@ -51,6 +57,7 @@ export default function ChatView(): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
+  const activePath = conversation ? getActivePath(conversation) : []
   const busy = requestActive
 
   useEffect(() => {
@@ -76,18 +83,23 @@ export default function ChatView(): JSX.Element {
     void buddy().cancel()
   }
 
-  const lastMessage = conversation?.messages[conversation.messages.length - 1]
+  const lastMessage = activePath.at(-1)
   const hasLiveAssistantOutput = lastMessage?.role === 'assistant' && lastMessage.content.length > 0
-  const showStatusBubble =
-    !cancelRequested && !hasLiveAssistantOutput && (requestActive || (status !== 'idle' && status !== 'error'))
-  const visibleMessages = conversation?.messages.filter(
-    (message) => !(requestActive && message.role === 'assistant' && !message.content && !message.error)
+  const showStatusBubble = shouldShowStatusBubble({
+    status,
+    requestActive,
+    cancelRequested,
+    hasLiveAssistantOutput,
+    isCompanion: false
+  })
+  const visibleMessages = activePath.filter((message) =>
+    !shouldHideEmptyAssistantMessage(message, status, requestActive, cancelRequested)
   )
 
   return (
     <>
       <div className="chat-scroll" ref={scrollRef}>
-        {!conversation || conversation.messages.length === 0 ? (
+        {!conversation || activePath.length === 0 ? (
           <div className="empty-state">
             <h1>What's on your screen?</h1>
             <p>
@@ -105,9 +117,21 @@ export default function ChatView(): JSX.Element {
           </div>
         ) : (
           <div className="chat-inner">
-            {visibleMessages?.map((m) => (
-              <MessageBubble key={m.id} message={m} />
-            ))}
+            {visibleMessages.map((m) => {
+              const siblings = getSiblings(conversation, m.id)
+              return (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  siblingIndex={siblings.findIndex((sibling) => sibling.id === m.id)}
+                  siblingCount={siblings.length}
+                  onSelectSibling={(id, direction) => void selectSibling(id, direction)}
+                  onBranchFromHere={(id) => void branchFrom(id)}
+                  onEdit={(id, content) => void editMessage(id, content)}
+                  onRegenerate={(id) => void regenerateMessage(id)}
+                />
+              )
+            })}
             {showStatusBubble && <StatusBubble status={status === 'idle' ? 'connecting' : status} />}
           </div>
         )}

@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { nanoid } from 'nanoid'
 import type { AppSettings, Conversation, ProviderId } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
+import { normalizeConversation } from '@shared/conversationTree'
 
 /**
  * Persistence layer. Buddy stores everything locally on disk (in the OS
@@ -97,11 +98,21 @@ function applyRetentionCleanup(settings: AppSettings): void {
 }
 
 export function listConversations(): Conversation[] {
-  return [...conversationsStore.get('conversations')].sort((a, b) => b.updatedAt - a.updatedAt)
+  const conversations = migrateStoredConversations()
+  return [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 export function getConversation(id: string): Conversation | undefined {
-  return conversationsStore.get('conversations').find((c) => c.id === id)
+  return migrateStoredConversations().find((c) => c.id === id)
+}
+
+function migrateStoredConversations(): Conversation[] {
+  const stored = conversationsStore.get('conversations')
+  const migrated = stored.map(normalizeConversation)
+  if (migrated.some((conversation, index) => conversation !== stored[index])) {
+    conversationsStore.set('conversations', migrated)
+  }
+  return migrated
 }
 
 export function createConversation(provider: Conversation['provider'], model: string): Conversation {
@@ -112,7 +123,10 @@ export function createConversation(provider: Conversation['provider'], model: st
     updatedAt: Date.now(),
     provider,
     model,
-    messages: []
+    messages: [],
+    selectedChildren: {},
+    activeMessageId: null,
+    branchDraftParentId: null
   }
   const all = conversationsStore.get('conversations')
   conversationsStore.set('conversations', [conv, ...all])
@@ -122,7 +136,7 @@ export function createConversation(provider: Conversation['provider'], model: st
 export function upsertConversation(conv: Conversation): void {
   const all = conversationsStore.get('conversations')
   const idx = all.findIndex((c) => c.id === conv.id)
-  const toStore = sanitizeForStorage(conv)
+  const toStore = sanitizeForStorage(normalizeConversation(conv))
   if (idx === -1) {
     conversationsStore.set('conversations', [toStore, ...all])
   } else {

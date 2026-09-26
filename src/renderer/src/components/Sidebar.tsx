@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useBuddyStore } from '../state/store'
-import { Plus, Search, Settings, Trash, X } from 'lucide-react'
+import { GitFork, Plus, Search, Settings, Trash, X } from 'lucide-react'
 
 interface Props {
-  view: 'chat' | 'settings'
-  onChangeView: (v: 'chat' | 'settings') => void
+  view: 'chat' | 'tree' | 'settings'
+  onChangeView: (v: 'chat' | 'tree' | 'settings') => void
 }
 
 export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
@@ -66,17 +66,30 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
               onChangeView('chat')
             }}
           >
-            <span>{c.title || 'New conversation'}</span>
-            <button
-              className="del-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                deleteConversation(c.id)
-              }}
-              title="Delete conversation"
-            >
-              <Trash size={13} />
-            </button>
+            <span className="sidebar-item-title">{c.title || 'New conversation'}</span>
+            <div className="sidebar-item-actions" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="tree-btn"
+                onClick={() => {
+                  selectConversation(c.id)
+                  onChangeView('tree')
+                }}
+                title="Open conversation tree"
+                aria-label="Open conversation tree"
+              >
+                <GitFork size={13} />
+              </button>
+              <button
+                className="del-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteConversation(c.id)
+                }}
+                title="Delete conversation"
+              >
+                <Trash size={13} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
