@@ -28,12 +28,17 @@ export interface ModelInfo {
   tools: boolean
 }
 
+export interface CaptureTargetRef {
+  id: string
+  title: string
+}
+
 export interface AppSettings {
   general: {
     launchOnStartup: boolean
+    startMinimized: boolean
     theme: 'dark' | 'light'
     language: string
-    notificationsEnabled: boolean
     hotkeyOpenCompanion: string
     hotkeyAnalyzeScreen: string
   }
@@ -41,6 +46,8 @@ export interface AppSettings {
     monitorId: string | null
     visualContextRetention: number // number of past screenshots to keep in memory per conversation
     proactiveModeEnabled: boolean
+    captureTargetPins: CaptureTargetRef[]
+    captureTargetBlacklist: CaptureTargetRef[]
   }
   ai: {
     activeProvider: ProviderId
@@ -48,7 +55,7 @@ export interface AppSettings {
   }
   privacy: {
     cloudProcessingAllowed: boolean
-    screenshotRetention: 'session' | 'none' | 'persist'
+    anonymousDiagnosticsEnabled: boolean
     conversationRetentionDays: number | null // null = forever
   }
   appearance: {
@@ -174,16 +181,18 @@ export interface AskStreamChunk {
 export const DEFAULT_SETTINGS: AppSettings = {
   general: {
     launchOnStartup: false,
+    startMinimized: false,
     theme: 'dark',
     language: 'en',
-    notificationsEnabled: true,
     hotkeyOpenCompanion: 'Alt+Space',
     hotkeyAnalyzeScreen: 'Alt+Shift+Space'
   },
   screen: {
     monitorId: null,
     visualContextRetention: 3,
-    proactiveModeEnabled: false
+    proactiveModeEnabled: false,
+    captureTargetPins: [],
+    captureTargetBlacklist: []
   },
   ai: {
     activeProvider: 'openrouter',
@@ -262,7 +271,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   privacy: {
     cloudProcessingAllowed: true,
-    screenshotRetention: 'session',
+    anonymousDiagnosticsEnabled: false,
     conversationRetentionDays: null
   },
   appearance: {

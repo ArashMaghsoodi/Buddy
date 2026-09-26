@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AppSettings, ModelInfo, ProviderConfig, ProviderId } from '@shared/types'
 import { useBuddyStore } from '../state/store'
 import { buddy } from '../lib/ipc'
-import { Brain, Eye, Hammer } from 'lucide-react'
+import { Brain, ChevronDown, ChevronUp, Eye, Hammer } from 'lucide-react'
 import HotkeyRecorder from './HotkeyRecorder'
 import ModelPicker from './ModelPicker'
 
@@ -24,6 +24,14 @@ export default function SettingsPanel(): JSX.Element | null {
   const [modelOptions, setModelOptions] = useState<Partial<Record<ProviderId, ModelInfo[]>>>({})
   const [fetchingProvider, setFetchingProvider] = useState<ProviderId | null>(null)
   const [fetchErrors, setFetchErrors] = useState<Partial<Record<ProviderId, string>>>({})
+  const [blockedAppsOpen, setBlockedAppsOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const timeoutId = window.setTimeout(() => setToast(null), 2200)
+    return () => window.clearTimeout(timeoutId)
+  }, [toast])
 
   if (!local) return null
 
@@ -64,6 +72,18 @@ export default function SettingsPanel(): JSX.Element | null {
 
   const activeProvider = local.ai.providers[local.ai.activeProvider]
 
+  function handleProactiveToggle(next: boolean): void {
+    if (!local) return
+
+    if (next) {
+      setToast('Proactive mode is coming soon.')
+      update({ ...local, screen: { ...local.screen, proactiveModeEnabled: false } })
+      return
+    }
+
+    update({ ...local, screen: { ...local.screen, proactiveModeEnabled: false } })
+  }
+
   return (
     <div className="settings-wrap">
       <h1>Settings</h1>
@@ -77,7 +97,46 @@ export default function SettingsPanel(): JSX.Element | null {
           </div>
           <Switch
             checked={local.general.launchOnStartup}
-            onChange={(v) => update({ ...local, general: { ...local.general, launchOnStartup: v } })}
+            onChange={(v) =>
+              update({
+                ...local,
+                general: { ...local.general, launchOnStartup: v, startMinimized: v ? local.general.startMinimized : false }
+              })
+            }
+          />
+        </div>
+        <div className={`settings-row start-minimized-row ${local.general.launchOnStartup ? 'expanded' : 'collapsed'}`}>
+          <div>
+            <div className="label">Start minimized</div>
+          </div>
+          <Switch
+            checked={local.general.startMinimized}
+            onChange={(v) => update({ ...local, general: { ...local.general, startMinimized: v } })}
+          />
+        </div>
+        <div className="settings-row">
+          <div className="label">Companion always on top</div>
+          <Switch
+            checked={local.appearance.companionAlwaysOnTop}
+            onChange={(v) =>
+              update({ ...local, appearance: { ...local.appearance, companionAlwaysOnTop: v } })
+            }
+          />
+        </div>
+        <div className="settings-row">
+          <div className="label">Overlay opacity</div>
+          <input
+            type="range"
+            min={0.5}
+            max={1}
+            step={0.01}
+            value={local.appearance.overlayOpacity}
+            onChange={(e) =>
+              update({
+                ...local,
+                appearance: { ...local.appearance, overlayOpacity: Number(e.target.value) }
+              })
+            }
           />
         </div>
         <div className="settings-row">
@@ -104,44 +163,61 @@ export default function SettingsPanel(): JSX.Element | null {
             }
           />
         </div>
-        <div className="settings-row">
-          <div className="label">Notifications</div>
-          <Switch
-            checked={local.general.notificationsEnabled}
-            onChange={(v) => update({ ...local, general: { ...local.general, notificationsEnabled: v } })}
-          />
-        </div>
       </div>
 
       <div className="settings-section">
         <h2>Screen</h2>
         <div className="settings-row">
           <div>
-            <div className="label">Visual context retention</div>
-            <div className="desc">How many recent screenshots stay available for follow-ups</div>
+            <div className="label">Proactive mode</div>
+            <div className="desc">Let Buddy occasionally offer help, unprompted.</div>
           </div>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={local.screen.visualContextRetention}
-            onChange={(e) =>
-              update({
-                ...local,
-                screen: { ...local.screen, visualContextRetention: Number(e.target.value) || 1 }
-              })
-            }
-          />
+          <div className="setting-toggle-stack">
+            {toast && <div className="settings-toast">{toast}</div>}
+            <Switch
+              checked={local.screen.proactiveModeEnabled}
+              onChange={(v) => handleProactiveToggle(v)}
+            />
+          </div>
         </div>
+
         <div className="settings-row">
           <div>
-            <div className="label">Proactive mode</div>
-            <div className="desc">Let Buddy occasionally offer help, unprompted (off by default)</div>
+            <div className="label">Blocked apps</div>
+            <div className="desc">Hidden from the capture picker until you remove them here</div>
           </div>
-          <Switch
-            checked={local.screen.proactiveModeEnabled}
-            onChange={(v) => update({ ...local, screen: { ...local.screen, proactiveModeEnabled: v } })}
-          />
+          <button type="button" className="mini-action mini-toggle" onClick={() => setBlockedAppsOpen((value) => !value)}>
+            {blockedAppsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {blockedAppsOpen ? 'Hide' : 'Show'} ({local.screen.captureTargetBlacklist.length})
+          </button>
+        </div>
+        <div className={`blocked-apps-panel ${blockedAppsOpen ? 'open' : ''}`}>
+          {local.screen.captureTargetBlacklist.length === 0 ? (
+            <div className="settings-row muted-row">
+              <div className="label">No blocked apps</div>
+            </div>
+          ) : (
+            local.screen.captureTargetBlacklist.map((item) => (
+              <div key={item.id} className="settings-row compact-list-row">
+                <div className="label mini-label">{item.title || 'Untitled window'}</div>
+                <button
+                  type="button"
+                  className="mini-action"
+                  onClick={() =>
+                    update({
+                      ...local,
+                      screen: {
+                        ...local.screen,
+                        captureTargetBlacklist: local.screen.captureTargetBlacklist.filter((entry) => entry.id !== item.id)
+                      }
+                    })
+                  }
+                >
+                  Unblock
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -219,26 +295,22 @@ export default function SettingsPanel(): JSX.Element | null {
           />
         </div>
         <div className="settings-row">
-          <div className="label">Screenshot retention</div>
-          <select
-            value={local.privacy.screenshotRetention}
-            onChange={(e) =>
-              update({
-                ...local,
-                privacy: {
-                  ...local.privacy,
-                  screenshotRetention: e.target.value as AppSettings['privacy']['screenshotRetention']
-                }
-              })
+          <div>
+            <div className="label">Anonymous crash diagnostics</div>
+            <div className="desc">Share basic crash reports to help improve Buddy stability</div>
+          </div>
+          <Switch
+            checked={local.privacy.anonymousDiagnosticsEnabled}
+            onChange={(v) =>
+              update({ ...local, privacy: { ...local.privacy, anonymousDiagnosticsEnabled: v } })
             }
-          >
-            <option value="none">Never keep screenshots</option>
-            <option value="session">Keep for this session only</option>
-            <option value="persist">Keep with conversation history</option>
-          </select>
+          />
         </div>
         <div className="settings-row">
-          <div className="label">Conversation retention</div>
+          <div>
+            <div className="label">Chat history retention</div>
+            <div className="desc">How long to keep your conversations stored on this device.</div>
+          </div>
           <select
             value={local.privacy.conversationRetentionDays ?? 'forever'}
             onChange={(e) =>
@@ -258,68 +330,6 @@ export default function SettingsPanel(): JSX.Element | null {
         </div>
       </div>
 
-      <div className="settings-section">
-        <h2>Appearance</h2>
-        <div className="settings-row">
-          <div className="label">Companion always on top</div>
-          <Switch
-            checked={local.appearance.companionAlwaysOnTop}
-            onChange={(v) =>
-              update({ ...local, appearance: { ...local.appearance, companionAlwaysOnTop: v } })
-            }
-          />
-        </div>
-        <div className="settings-row">
-          <div className="label">Overlay opacity</div>
-          <input
-            type="range"
-            min={0.5}
-            max={1}
-            step={0.01}
-            value={local.appearance.overlayOpacity}
-            onChange={(e) =>
-              update({
-                ...local,
-                appearance: { ...local.appearance, overlayOpacity: Number(e.target.value) }
-              })
-            }
-          />
-        </div>
-        <div className="settings-row">
-          <div className="label">Animation intensity</div>
-          <select
-            value={local.appearance.animationIntensity}
-            onChange={(e) =>
-              update({
-                ...local,
-                appearance: {
-                  ...local.appearance,
-                  animationIntensity: e.target.value as AppSettings['appearance']['animationIntensity']
-                }
-              })
-            }
-          >
-            <option value="none">None</option>
-            <option value="subtle">Subtle</option>
-            <option value="normal">Normal</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <div className="label">Density</div>
-          <select
-            value={local.appearance.density}
-            onChange={(e) =>
-              update({
-                ...local,
-                appearance: { ...local.appearance, density: e.target.value as AppSettings['appearance']['density'] }
-              })
-            }
-          >
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
-          </select>
-        </div>
-      </div>
     </div>
   )
 }

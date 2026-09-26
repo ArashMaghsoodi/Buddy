@@ -31,9 +31,12 @@ const fallbackTrayIcon =
 function bootstrap(): void {
   registerIpcHandlers()
 
-  createMainWindow()
-
   const settings = getSettings()
+  const mainWindow = createMainWindow()
+  if (settings.general.startMinimized) {
+    mainWindow.minimize()
+  }
+
   // The companion window is created and shown immediately as a small,
   // always-on-top floating action button — it's the primary everyday
   // entry point, not something the user has to summon first. It never

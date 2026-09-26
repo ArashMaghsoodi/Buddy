@@ -61,7 +61,12 @@ export function getSettings(): AppSettings {
     ...DEFAULT_SETTINGS,
     ...stored,
     general: { ...DEFAULT_SETTINGS.general, ...stored?.general },
-    screen: { ...DEFAULT_SETTINGS.screen, ...stored?.screen },
+    screen: {
+      ...DEFAULT_SETTINGS.screen,
+      ...stored?.screen,
+      captureTargetPins: stored?.screen?.captureTargetPins ?? DEFAULT_SETTINGS.screen.captureTargetPins,
+      captureTargetBlacklist: stored?.screen?.captureTargetBlacklist ?? DEFAULT_SETTINGS.screen.captureTargetBlacklist
+    },
     ai: {
       ...DEFAULT_SETTINGS.ai,
       ...stored?.ai,
@@ -146,26 +151,12 @@ export function upsertConversation(conv: Conversation): void {
 }
 
 /**
- * Screenshots are shown live in the current session regardless of the
- * privacy setting (that's just UI feedback for the turn that was just
- * sent), but whether they're written to disk is governed by
- * `privacy.screenshotRetention`. "persist" keeps them in the conversation
- * file; "session" and "none" both strip them before writing — the
- * difference between those two is handled elsewhere (session simply never
- * gets to this point again after the app restarts, since nothing was
- * written).
+ * Keep the conversation payload as-is. Buddy does not currently enforce a
+ * separate screenshot retention policy, and screenshots are allowed to stay
+ * attached when the user keeps them in a local conversation.
  */
 function sanitizeForStorage(conv: Conversation): Conversation {
-  const settings = getSettings()
-  if (settings.privacy.screenshotRetention === 'persist') return conv
-  const hasAny = conv.messages.some((m) => m.screenshotDataUrl)
-  if (!hasAny) return conv
-  return {
-    ...conv,
-    messages: conv.messages.map((m) =>
-      m.screenshotDataUrl ? { ...m, screenshotDataUrl: null } : m
-    )
-  }
+  return conv
 }
 
 export function renameConversation(id: string, title: string): void {
