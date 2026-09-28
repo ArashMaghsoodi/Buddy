@@ -127,9 +127,9 @@ export default function SettingsPanel(): JSX.Element | null {
           <div className="label">Overlay opacity</div>
           <input
             type="range"
-            min={0.5}
+            min={0.3}
             max={1}
-            step={0.01}
+            step={0.02}
             value={local.appearance.overlayOpacity}
             onChange={(e) =>
               update({
@@ -151,7 +151,7 @@ export default function SettingsPanel(): JSX.Element | null {
             }
           />
         </div>
-        <div className="settings-row">
+        {/* <div className="settings-row">
           <div>
             <div className="label">Analyze screen hotkey</div>
             <div className="desc">Captures the screen and opens the companion</div>
@@ -162,7 +162,7 @@ export default function SettingsPanel(): JSX.Element | null {
               update({ ...local, general: { ...local.general, hotkeyAnalyzeScreen: next } })
             }
           />
-        </div>
+        </div> */}
       </div>
 
       <div className="settings-section">
@@ -324,8 +324,8 @@ export default function SettingsPanel(): JSX.Element | null {
             }
           >
             <option value="forever">Keep forever</option>
-            <option value="30">30 days</option>
             <option value="7">7 days</option>
+            <option value="30">30 days</option>
           </select>
         </div>
       </div>

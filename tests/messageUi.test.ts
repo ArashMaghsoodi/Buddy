@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { getMessagePreviewText, shouldHideEmptyAssistantMessage, shouldShowStatusBubble } from '../src/shared/messageUi.ts'
+import {
+  getMessagePreviewText,
+  isAssistantLoadingPlaceholder,
+  shouldHideEmptyAssistantMessage,
+  shouldShowStatusBubble
+} from '../src/shared/messageUi.ts'
 
 test('hides empty assistant placeholders while a response is in flight', () => {
   const message = {
@@ -48,6 +53,14 @@ test('shows status bubble once when the app is busy and the last assistant messa
     }),
     true
   )
+})
+
+test('treats assistant loading dots as a real placeholder message, not an empty one', () => {
+  assert.equal(isAssistantLoadingPlaceholder('.'), true)
+  assert.equal(isAssistantLoadingPlaceholder('..'), true)
+  assert.equal(isAssistantLoadingPlaceholder('...'), true)
+  assert.equal(isAssistantLoadingPlaceholder('hello'), false)
+  assert.equal(shouldHideEmptyAssistantMessage({ role: 'assistant', content: '..', error: undefined }, 'thinking', false), false)
 })
 
 test('shows a thinking label for an in-flight assistant node in the tree', () => {

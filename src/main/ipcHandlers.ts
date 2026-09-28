@@ -366,7 +366,7 @@ export function registerIpcHandlers(): void {
         id: nanoid(),
         parentId: regenerationTarget ? regenerationTarget.parentId : conversation.activeMessageId,
         role: 'assistant',
-        content: '',
+        content: '.',
         createdAt: Date.now(),
         provider: settings.ai.activeProvider,
         model: providerConfig.model
@@ -436,9 +436,20 @@ export function registerIpcHandlers(): void {
             ? err.message
             : 'Something went wrong while analyzing your screen.'
 
+      if (assistantMessage && /^\.+$/.test(assistantMessage.content)) {
+        const placeholderIndex = conversation.messages.findIndex((candidate) => candidate.id === assistantMessage!.id)
+        if (placeholderIndex >= 0) {
+          conversation.messages.splice(placeholderIndex, 1)
+          const previousSibling = [...conversation.messages].reverse().find((candidate) => candidate.role !== 'system')
+          conversation.activeMessageId = previousSibling?.id ?? null
+          conversation.selectedChildren = { ...conversation.selectedChildren }
+          delete conversation.selectedChildren[assistantMessage.parentId ?? '$root']
+        }
+      }
+
       const errorMessage: ChatMessage = {
         id: nanoid(),
-        parentId: conversation.activeMessageId,
+        parentId: assistantMessage?.parentId ?? conversation.activeMessageId,
         role: 'assistant',
         content: '',
         createdAt: Date.now(),

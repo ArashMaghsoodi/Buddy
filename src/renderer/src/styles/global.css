@@ -655,10 +655,11 @@ textarea {
   justify-content: flex-end;
 }
 .msg-row.assistant .msg-actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-self: flex-start;
 }
 .msg-row.assistant .msg-sibling-switcher {
-  margin-right: auto;
+  margin-right: 0;
 }
 @media (hover: none) {
   .msg-actions {
@@ -916,7 +917,7 @@ textarea {
 .settings-wrap .subtitle {
   color: var(--text-2);
   font-size: 13px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .settings-section {
   margin-bottom: 26px;
@@ -1165,6 +1166,20 @@ body:has(.fab-button) {
 }
 .fab-button.busy {
   animation: pulse 1.4s ease-in-out infinite;
+}
+
+.fab-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.companion-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
 }
 
 /* Companion window */

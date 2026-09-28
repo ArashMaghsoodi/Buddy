@@ -20,13 +20,14 @@ export default defineConfig({
     }
   },
   renderer: {
-    root: resolve('src/renderer'),
-    resolve: {
-      alias: {
-        '@renderer': resolve('src/renderer/src'),
-        '@shared': resolve('src/shared')
-      }
-    },
+      root: resolve('src/renderer'),
+      publicDir: resolve('src/renderer/public'),
+      resolve: {
+        alias: {
+          '@renderer': resolve('src/renderer/src'),
+          '@shared': resolve('src/shared')
+        }
+      },
     build: {
       rollupOptions: {
         input: {

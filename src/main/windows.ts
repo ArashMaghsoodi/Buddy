@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, nativeImage, screen, shell } from 'electron'
 import { join } from 'path'
 import type { CompanionState } from '@shared/types'
 import { is } from './utils'
@@ -8,9 +8,14 @@ let mainWindow: BrowserWindow | null = null
 let companionWindow: BrowserWindow | null = null
 let companionMode: 'fab' | 'overlay' = 'fab'
 let companionAnimation: ReturnType<typeof setInterval> | null = null
+let companionTopmostRefresh: ReturnType<typeof setInterval> | null = null
 
 const preloadPath = join(__dirname, '../preload/index.js')
 const rendererDevServerUrl = process.env['ELECTRON_RENDERER_URL']
+const appIconPath = process.env.NODE_ENV === 'development'
+  ? join(app.getAppPath(), 'resources', 'icon.ico')
+  : join(process.resourcesPath, 'icon.ico')
+const appIcon = nativeImage.createFromPath(appIconPath)
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
@@ -52,6 +57,7 @@ export function createMainWindow(): BrowserWindow {
     backgroundColor: '#15151a',
     titleBarStyle: 'hiddenInset',
     autoHideMenuBar: true,
+    icon: appIcon,
     webPreferences: {
       preload: preloadPath,
       sandbox: false,
@@ -134,8 +140,17 @@ export function createCompanionWindow(alwaysOnTop: boolean): BrowserWindow {
     }
   })
 
+  refreshCompanionTopmost(alwaysOnTop)
+  startCompanionTopmostRefresh(alwaysOnTop)
+
   companionMode = 'fab'
-  companionWindow.on('closed', () => (companionWindow = null))
+  companionWindow.on('closed', () => {
+    if (companionTopmostRefresh) {
+      clearInterval(companionTopmostRefresh)
+      companionTopmostRefresh = null
+    }
+    companionWindow = null
+  })
 
   if (is.dev && rendererDevServerUrl) {
     companionWindow.loadURL(`${rendererDevServerUrl}/companion.html`)
@@ -152,6 +167,27 @@ function ensureCompanionWindow(): BrowserWindow {
     return createCompanionWindow(alwaysOnTop)
   }
   return companionWindow
+}
+
+function refreshCompanionTopmost(alwaysOnTop: boolean): void {
+  if (!companionWindow || companionWindow.isDestroyed()) return
+
+  companionWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  companionWindow.setAlwaysOnTop(alwaysOnTop, 'screen-saver', 1)
+  if (alwaysOnTop && companionWindow.isVisible()) {
+    companionWindow.showInactive()
+  }
+}
+
+function startCompanionTopmostRefresh(alwaysOnTop: boolean): void {
+  if (companionTopmostRefresh) {
+    clearInterval(companionTopmostRefresh)
+  }
+
+  companionTopmostRefresh = setInterval(() => {
+    if (!companionWindow || companionWindow.isDestroyed()) return
+    refreshCompanionTopmost(alwaysOnTop)
+  }, 150)
 }
 
 function animateCompanionBounds(win: BrowserWindow, target: Electron.Rectangle): void {
@@ -253,7 +289,9 @@ export function hideCompanionWindow(): void {
 }
 
 export function setCompanionAlwaysOnTop(alwaysOnTop: boolean): void {
-  companionWindow?.setAlwaysOnTop(alwaysOnTop, 'floating')
+  if (!companionWindow || companionWindow.isDestroyed()) return
+  refreshCompanionTopmost(alwaysOnTop)
+  startCompanionTopmostRefresh(alwaysOnTop)
 }
 
 // ---- Overlay → maximized window handoff ----

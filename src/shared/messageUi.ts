@@ -1,5 +1,9 @@
 import type { AppStatus, ChatMessage } from './types'
 
+export function isAssistantLoadingPlaceholder(content: string | null | undefined): boolean {
+  return typeof content === 'string' && /^\.+$/.test(content) && content.length > 0 && content.length <= 3
+}
+
 export function shouldHideEmptyAssistantMessage(
   message: Pick<ChatMessage, 'role' | 'content' | 'error'>,
   status: AppStatus,
@@ -8,7 +12,11 @@ export function shouldHideEmptyAssistantMessage(
 ): boolean {
   if (cancelRequested) return false
   if (message.role !== 'assistant') return false
-  if (message.content || message.error) return false
+  if (message.error) return false
+  if (message.content) {
+    if (isAssistantLoadingPlaceholder(message.content)) return false
+    return false
+  }
   if (requestActive) return true
 
   return ['capturing', 'analyzing', 'thinking', 'responding'].includes(status)

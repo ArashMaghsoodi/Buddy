@@ -40,10 +40,12 @@
     "appId": "com.buddy.app",
     "productName": "Buddy",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "resources/icon.ico"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "resources/**/*"
     ]
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '@shared/types'
 import ReactMarkdown from 'react-markdown'
+import { isAssistantLoadingPlaceholder } from '@shared/messageUi'
 import {
   AlertTriangle,
   Check,
@@ -40,8 +41,19 @@ export default function MessageBubble({
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
+  const [loadingFrame, setLoadingFrame] = useState(0)
   const [actionsAlign, setActionsAlign] = useState<'left' | 'right'>('left')
   const [bubbleWidth, setBubbleWidth] = useState<number | null>(null)
+  const isLoadingPlaceholder = isAssistantLoadingPlaceholder(message.content)
+
+  useEffect(() => {
+    if (!isLoadingPlaceholder) return
+    const sequence = ['.', '..', '...']
+    const timer = window.setInterval(() => {
+      setLoadingFrame((frame) => (frame + 1) % sequence.length)
+    }, 420)
+    return () => window.clearInterval(timer)
+  }, [isLoadingPlaceholder])
 
   useEffect(() => {
     if (!imageOpen) return
@@ -63,7 +75,7 @@ export default function MessageBubble({
       const nextBubbleWidth = bubbleEl.getBoundingClientRect().width
       const actionsWidth = actionsEl.scrollWidth
       setBubbleWidth(nextBubbleWidth)
-      setActionsAlign(nextBubbleWidth < actionsWidth + 8 ? 'right' : 'left')
+      setActionsAlign(isUser ? (nextBubbleWidth < actionsWidth + 8 ? 'right' : 'left') : 'left')
     }
 
     updateAlignment()
@@ -86,6 +98,8 @@ export default function MessageBubble({
   }
 
   const actionStyle = actionsAlign === 'right' && bubbleWidth !== null ? { width: `${bubbleWidth}px` } : undefined
+  const loadingSequence = ['.', '..', '...']
+  const renderedContent = isLoadingPlaceholder ? loadingSequence[loadingFrame] : message.content
 
   return (
     <div className={`msg-row ${isUser ? 'user' : 'assistant'}`}>
@@ -120,6 +134,8 @@ export default function MessageBubble({
             <span className="msg-error">
               <AlertTriangle size={14} /> {message.error}
             </span>
+          ) : isLoadingPlaceholder ? (
+            <span className="msg-loading-placeholder">{renderedContent}</span>
           ) : (
             <ReactMarkdown>{message.content}</ReactMarkdown>
           )}
