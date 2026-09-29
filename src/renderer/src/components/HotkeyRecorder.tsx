@@ -141,7 +141,7 @@ export default function HotkeyRecorder({ value, onChange }: Props): JSX.Element 
         onClick={() => !editing && startEditing()}
       />
       {editing && (
-        <button className="hotkey-confirm" title="Confirm hotkey" onClick={confirm}>
+        <button className="hotkey-confirm" data-tooltip="Confirm hotkey" aria-label="Confirm hotkey" onClick={confirm}>
           <Check size={15} />
         </button>
       )}

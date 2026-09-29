@@ -4,6 +4,10 @@ export function isAssistantLoadingPlaceholder(content: string | null | undefined
   return typeof content === 'string' && /^\.+$/.test(content) && content.length > 0 && content.length <= 3
 }
 
+export function isRequestBusy(status: AppStatus, requestActive: boolean): boolean {
+  return requestActive || ['capturing', 'analyzing', 'thinking', 'responding'].includes(status)
+}
+
 export function shouldHideEmptyAssistantMessage(
   message: Pick<ChatMessage, 'role' | 'content' | 'error'>,
   status: AppStatus,
@@ -19,7 +23,7 @@ export function shouldHideEmptyAssistantMessage(
   }
   if (requestActive) return true
 
-  return ['capturing', 'analyzing', 'thinking', 'responding'].includes(status)
+  return isRequestBusy(status, false)
 }
 
 export function shouldShowStatusBubble({
@@ -37,7 +41,7 @@ export function shouldShowStatusBubble({
 }): boolean {
   if (isCompanion) return false
   if (cancelRequested || hasLiveAssistantOutput) return false
-  return requestActive || (status !== 'idle' && status !== 'error')
+  return isRequestBusy(status, requestActive)
 }
 
 export function getMessagePreviewText(
@@ -50,7 +54,7 @@ export function getMessagePreviewText(
   if (message.content) return message.content
   if (message.role === 'assistant') {
     if (cancelRequested) return '(cancelled)'
-    if (requestActive || ['capturing', 'analyzing', 'thinking', 'responding'].includes(status)) {
+    if (isRequestBusy(status, requestActive)) {
       return 'Thinking…'
     }
     return '(empty message)'

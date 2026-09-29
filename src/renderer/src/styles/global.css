@@ -79,6 +79,77 @@ button {
   cursor: pointer;
 }
 
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  position: absolute;
+  z-index: 2000;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 24px));
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-0);
+  box-shadow: var(--shadow-1);
+  color: var(--text-0);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 3px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+[data-tooltip-placement="above-start"]::after,
+[data-tooltip-placement="above-end"]::after {
+  transform: translateY(3px);
+}
+[data-tooltip-placement="above-start"]::after {
+  left: 0;
+}
+[data-tooltip-placement="above-end"]::after {
+  right: 0;
+  left: auto;
+}
+[data-tooltip-placement="above-start"]:hover::after,
+[data-tooltip-placement="above-start"]:focus-visible::after,
+[data-tooltip-placement="above-end"]:hover::after,
+[data-tooltip-placement="above-end"]:focus-visible::after {
+  transform: translateY(0);
+}
+[data-tooltip-placement="below-start"]::after,
+[data-tooltip-placement="below-end"]::after {
+  top: calc(100% + 7px);
+  bottom: auto;
+  transform: translateY(-3px);
+}
+[data-tooltip-placement="below-start"]::after {
+  left: 0;
+}
+[data-tooltip-placement="below-end"]::after {
+  right: 0;
+  left: auto;
+}
+[data-tooltip-placement="below-start"]:hover::after,
+[data-tooltip-placement="below-start"]:focus-visible::after,
+[data-tooltip-placement="below-end"]:hover::after,
+[data-tooltip-placement="below-end"]:focus-visible::after {
+  transform: translateY(0);
+}
+
 input,
 textarea {
   font-family: inherit;
@@ -113,7 +184,7 @@ textarea {
   width: 30px;
   height: 30px;
   margin-left: auto;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
@@ -271,6 +342,22 @@ textarea {
   background: var(--bg-2);
   color: var(--text-0);
 }
+.sidebar-item:has([data-tooltip]:hover),
+.sidebar-item:has([data-tooltip]:focus-visible) {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+}
+.sidebar-list > .sidebar-item:first-child [data-tooltip-placement="above-end"]::after {
+  top: auto;
+  bottom: auto;
+  top: calc(100% + 7px);
+  transform: translateY(-3px);
+}
+.sidebar-list > .sidebar-item:first-child [data-tooltip-placement="above-end"]:hover::after,
+.sidebar-list > .sidebar-item:first-child [data-tooltip-placement="above-end"]:focus-visible::after {
+  transform: translateY(0);
+}
 .sidebar-item.active {
   background: var(--accent-soft);
   color: var(--accent-text);
@@ -301,7 +388,7 @@ textarea {
   margin-left: auto;
   width: 0;
   max-width: 0;
-  overflow: hidden;
+  overflow: visible;
   opacity: 0;
   pointer-events: none;
 }
@@ -348,6 +435,7 @@ textarea {
   padding: 8px 10px;
   border-radius: var(--radius-md);
   border: none;
+  z-index: 1;
   background: transparent;
   color: var(--text-1);
   font-size: 12.5px;
@@ -359,13 +447,21 @@ textarea {
 }
 
 .tree-view {
+  --tree-content-width: 90%;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 24px 28px 40px;
 }
+.tree-view.graph-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 16px;
+}
 .tree-header {
-  max-width: 920px;
+  width: min(var(--tree-content-width), 1160px);
+  max-width: none;
   margin: 0 auto 20px;
   display: flex;
   align-items: baseline;
@@ -379,14 +475,294 @@ textarea {
   font-size: 18px;
   font-weight: 600;
 }
-.tree-header > span,
+.tree-header-title > span,
 .tree-empty {
   color: var(--text-2);
   font-size: 12px;
 }
+.tree-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.tree-view > [role="tabpanel"] {
+  width: min(var(--tree-content-width), 1160px);
+  max-width: none;
+  margin-right: auto;
+  margin-left: auto;
+}
+.tree-layout-tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.tree-layout-tabs button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+.tree-layout-tabs button:hover {
+  color: var(--text-0);
+}
+.tree-layout-tabs button.active {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
 .tree-empty {
-  max-width: 920px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.conversation-graph {
+  position: relative;
+  width: 100%;
+  max-width: 1160px;
+  min-height: 0;
   margin: 0 auto;
+}
+.tree-view.graph-layout .conversation-graph {
+  display: flex;
+  flex: 1 1 auto;
+  width: min(var(--tree-content-width), 1160px);
+  max-width: none;
+  min-height: 0;
+}
+.conversation-graph-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  cursor: grab;
+  touch-action: none;
+  background-color: rgba(23, 23, 27, 0.48);
+  background-image:
+    linear-gradient(rgba(183, 180, 173, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(183, 180, 173, 0.055) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.tree-view.graph-layout .conversation-graph-viewport {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+.conversation-graph-viewport.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.conversation-graph-controls {
+  position: sticky;
+  z-index: 5;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 3px;
+  margin: 8px 0 -34px 8px;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: rgba(18, 18, 21, 0.94);
+}
+.conversation-graph-controls button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-1);
+}
+.conversation-graph-controls button:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+.conversation-graph-controls span {
+  min-width: 38px;
+  color: var(--text-2);
+  font-size: 10px;
+  text-align: center;
+}
+.conversation-graph-world {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+  transform-origin: top left;
+}
+.conversation-graph-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  overflow: visible;
+}
+.conversation-graph-edges path {
+  fill: none;
+  stroke: #48464b;
+  stroke-width: 1.5;
+}
+.conversation-graph-node-wrap {
+  position: absolute;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+.conversation-graph-node {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 6px;
+  border: 1px solid #48464b;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-1);
+  text-align: left;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+.conversation-graph-node:not(.selected):hover,
+.conversation-graph-node:not(.selected):focus-visible {
+  border-color: #fff;
+  background: var(--bg-1);
+  outline: none;
+}
+.conversation-graph-node.active {
+  color: var(--text-0);
+}
+.conversation-graph-node.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.conversation-graph-role {
+  display: inline-flex;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #5b8d83;
+  border-radius: 50%;
+  background: rgba(94, 151, 137, 0.14);
+  color: #9bc9bd;
+  font-size: 11px;
+  font-weight: 600;
+}
+.conversation-graph-node.user .conversation-graph-role {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.conversation-graph-node.system .conversation-graph-role {
+  border-color: var(--border);
+  background: var(--bg-2);
+  color: var(--text-2);
+}
+.conversation-graph-preview {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-graph-node-actions {
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.conversation-graph-node-wrap:hover .conversation-graph-node-actions,
+.conversation-graph-node-wrap:focus-within .conversation-graph-node-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.conversation-graph-node-actions button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  transition: color 0.14s ease, background-color 0.14s ease, border-color 0.14s ease;
+}
+.conversation-graph-node-actions button:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+.conversation-graph-node-actions button.danger:hover {
+  color: var(--danger);
+}
+.conversation-graph-selection {
+  position: absolute;
+  z-index: 4;
+  max-width: min(340px, calc(100vw - 60px));
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-1);
+  box-shadow: var(--shadow-1);
+  color: var(--text-1);
+}
+.conversation-graph-selection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.conversation-graph-selection header button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+}
+.conversation-graph-selection header button:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+.conversation-graph-selection-role {
+  color: var(--accent-text);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.conversation-graph-selection-role.assistant {
+  color: #9bc9bd;
+}
+.conversation-graph-selection p {
+  max-height: 150px;
+  overflow: auto;
+  margin: 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .tree-list {
   list-style: none;
@@ -395,7 +771,8 @@ textarea {
   border-left: 1px solid var(--border);
 }
 .tree-root-list {
-  max-width: 920px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
   padding-left: 0;
   border-left: 0;
@@ -446,6 +823,11 @@ textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+.tree-node-row:has([data-tooltip]:hover),
+.tree-node-row:has([data-tooltip]:focus-visible) {
+  position: relative;
+  z-index: 2;
 }
 .tree-action {
   display: inline-flex;
@@ -540,6 +922,11 @@ textarea {
   display: flex;
   gap: 12px;
 }
+.msg-row:hover,
+.msg-row:focus-within {
+  position: relative;
+  z-index: 1;
+}
 .msg-row.user {
   justify-content: flex-end;
 }
@@ -626,7 +1013,11 @@ textarea {
   opacity: 1;
 }
 .msg-row:hover .msg-actions,
-.msg-row:focus-within .msg-actions {
+.msg-row:focus-within .msg-actions,
+.msg-row:has(.msg-actions:hover),
+.msg-row:has(.msg-actions:focus-within),
+.msg-actions:hover,
+.msg-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }
@@ -641,6 +1032,18 @@ textarea {
   font-size: 13px;
   line-height: 1;
   transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.msg-actions .msg-action[data-tooltip]::after {
+  left: 0;
+  transform: translateY(3px);
+}
+.msg-actions .msg-action[data-tooltip]:hover::after,
+.msg-actions .msg-action[data-tooltip]:focus-visible::after {
+  transform: translateY(0);
+}
+.msg-actions.align-right > .msg-action[data-tooltip]::after {
+  right: 0;
+  left: auto;
 }
 .msg-action:hover {
   color: var(--text-0);
@@ -749,7 +1152,7 @@ textarea {
   padding: 0;
   border: 0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--bg-0);
   cursor: zoom-in;
 }
@@ -759,6 +1162,7 @@ textarea {
 .msg-image-overlay {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1196,7 +1600,134 @@ body:has(.fab-button) {
   box-shadow: var(--shadow-1);
 }
 
+.branch-delete-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-1);
+  box-shadow: var(--shadow-1);
+  color: var(--text-0);
+}
+.branch-delete-dialog::backdrop {
+  background: rgba(5, 5, 7, 0.68);
+  backdrop-filter: blur(2px);
+}
+.branch-delete-dialog[open] {
+  animation: branch-dialog-in 140ms ease-out both;
+}
+@keyframes branch-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.branch-delete-heading {
+  padding: 22px 24px 16px;
+}
+.branch-delete-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.branch-delete-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(229, 105, 95, 0.35);
+  border-radius: 8px;
+  background: rgba(229, 105, 95, 0.1);
+  color: var(--danger);
+}
+.branch-delete-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.branch-delete-heading p {
+  margin: 12px 0 0;
+  color: var(--text-1);
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.branch-delete-preview {
+  margin: 0 24px 20px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--bg-0);
+}
+.branch-delete-preview span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-2);
+  font-size: 10px;
+}
+.branch-delete-preview p {
+  max-height: 66px;
+  overflow: auto;
+  margin: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.branch-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.branch-delete-actions button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease, transform 0.1s ease;
+}
+.branch-delete-actions button:active {
+  transform: translateY(1px);
+}
+.branch-delete-cancel {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+.branch-delete-cancel:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+.branch-delete-confirm {
+  border-color: var(--danger) !important;
+  background: var(--danger);
+  color: #1a1310;
+}
+.branch-delete-confirm:hover {
+  background: #f0786f;
+  color: #1a1310;
+}
+
 .companion-header {
+  position: relative;
+  z-index: 2;
   -webkit-app-region: drag;
   display: flex;
   align-items: center;
@@ -1218,6 +1749,8 @@ body:has(.fab-button) {
   font-weight: 400;
 }
 .companion-header .actions {
+  position: relative;
+  z-index: 4;
   -webkit-app-region: no-drag;
   display: flex;
   gap: 4px;
@@ -1237,6 +1770,89 @@ body:has(.fab-button) {
 .icon-btn:hover {
   background: var(--bg-3);
   color: var(--text-0);
+}
+.icon-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.companion-history-picker {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(360px, calc(100vh - 88px));
+  flex-direction: column;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-1);
+  box-shadow: var(--shadow-1);
+}
+.companion-history-search {
+  width: 100%;
+  height: 32px;
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-size: 12px;
+}
+.companion-history-search:focus {
+  border-color: var(--accent);
+}
+.companion-history-search::placeholder {
+  color: var(--text-2);
+}
+.companion-history-list {
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.companion-history-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-1);
+  text-align: left;
+}
+.companion-history-item:hover {
+  background: var(--bg-2);
+  color: var(--text-0);
+}
+.companion-history-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.companion-history-item span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.companion-history-item small {
+  flex: 0 0 auto;
+  color: var(--text-2);
+  font-size: 10px;
+}
+.companion-history-empty {
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  text-align: center;
 }
 
 .companion-chat {
@@ -1364,9 +1980,10 @@ body:has(.fab-button) {
   position: absolute;
   top: 50%;
   right: 9px;
+  z-index: 1;
   transform: translateY(-50%);
   font-size: 12px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 .fetch-btn {
   border: 1px solid var(--border);
@@ -1495,6 +2112,17 @@ body:has(.fab-button) {
   .capture-popover.open,
   .capture-popover.closing {
     animation-duration: 1ms;
+  }
+  .branch-delete-dialog[open] {
+    animation-duration: 1ms;
+  }
+  .branch-delete-actions button {
+    transition-duration: 1ms;
+  }
+  .conversation-graph-node,
+  .conversation-graph-node-actions,
+  .conversation-graph-node-actions button {
+    transition-duration: 1ms;
   }
 }
 .capture-popover-title {

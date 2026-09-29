@@ -1,117 +1,95 @@
 # Buddy
 
-Buddy is a general-purpose visual AI companion for Windows: press a global
-hotkey, and Buddy looks at whatever is currently on your screen — a graph,
-a website, a video, a game, a document — and lets you ask about it in plain
-conversation, with follow-ups that stay grounded in what you were just
-looking at.
+**Your screen, understood.** Buddy is a Windows desktop companion that lets you ask an AI about what you are looking at, right when you need help. Capture a monitor, a window, or a hand-picked region; ask a question in plain language; keep the conversation grounded as you follow up.
 
-This is the MVP build described in the project brief: floating companion,
-global hotkeys, screen capture, a provider-agnostic vision-AI backend
-(OpenRouter, OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Groq, GitHub
-Copilot, or any custom OpenAI-compatible endpoint),
-conversational visual context, and local-only conversation storage.
+## ⬇️ Download Buddy
 
-## Tech stack
+Get the Windows installer from the [Buddy Releases page](https://github.com/ArashMaghsoodi/Buddy/releases). Download the `.exe` there to try Buddy; you do not need to clone the repository or build it yourself.
 
-- **Electron** + **electron-vite** (main / preload / renderer split)
-- **React + TypeScript** for both the main window and the floating companion
-- Plain, hand-written CSS — a calm, dark, Claude-Desktop-inspired theme
-- **electron-store** for local, on-disk settings + conversation persistence
-  (a JSON document store — swapped in for SQLite to avoid native-module
-  build friction; see `src/main/store.ts` for the note on migrating later)
-- No cloud dependency beyond whichever AI provider you configure — nothing
-  is sent anywhere unless you ask a question with screen capture on
+## 💡 Why Buddy?
 
-## Getting started
+I created Buddy because asking a quick question about my screen had turned into a whole routine: open a browser, wait for it, find an AI service, wait again, figure out how to attach a screenshot, send the question, then close the browser when I was done. A few minutes later, I would have another question and have to start all over. Leaving browser tabs open just to be ready was not appealing either, especially when the browser was using memory while I was doing something else.
 
-This project's dependencies were **not** installed in the environment that
-generated this code (no network access there), so the first thing to do
-after extracting is:
+I wanted an always-ready companion on the desktop instead. With Buddy, I can bring up the floating chat, choose what it should see right in the composer, and ask. The conversation stays there for follow-ups, and the companion is still ready when the next question comes up. No browser-opening ritual, no separate screenshot-upload detour, no keeping an AI tab around between questions.
 
-```bash
-npm install
+## ✨ What you can do today
+
+- **Capture exactly what matters.** Choose a monitor, the current window, a listed application window, or drag to select a screen region. Capture respects monitor size and scaling differences.
+- **Ask about what you see.** Send a question with a screenshot attached, then ask follow-ups that retain the conversation's visual context.
+- **Work from either view.** Use the full chat or the movable, always-on-top companion; both stay synced to the same conversations.
+- **Explore alternate answers without losing work.** Edit a prompt or regenerate a response as a new branch, switch between sibling messages, or inspect and manage the conversation in the graph view.
+- **Keep useful conversation tools close.** Copy message text, search conversation history, and open screenshot attachments at full size.
+- **Choose your AI provider.** Buddy supports OpenAI, Anthropic, Google Gemini, and OpenAI-compatible services such as OpenRouter, xAI, DeepSeek, Groq, GitHub Copilot-compatible endpoints, 9Router, and local or custom endpoints. Configure providers and models in Settings.
+- **Use global shortcuts.** Open the companion with `Alt+Space`; trigger screen analysis with `Alt+Shift+Space`. The companion shortcut can be changed in Settings.
+
+## 🔒 Privacy and control
+
+Buddy stores settings and conversations locally on your device. It does not continuously upload your screen: a screenshot is sent to the provider you configured only when you choose to send a message with capture enabled. Turn capture off in the composer for a text-only message. Check your provider's privacy policy to understand how it handles requests it receives.
+
+## 🛣️ What's next
+
+Buddy is being developed incrementally. Ideas on the roadmap include:
+
+- **Richer screen context:** optional OCR for text-heavy screens, plus active application, window title, and capture-source details when available.
+- **Point and ask:** click or mark an area on screen to direct Buddy's attention to a chart, control, equation, or other detail.
+- **Meaningful change detection:** recognize significant screen changes while filtering out cursor movement, animation, and other visual noise.
+- **Opt-in proactive help:** let Buddy offer assistance based on relevant changes, with user-selected targets, cooldowns, and controls over interruptions.
+- **Careful computer interaction:** explore mouse and keyboard actions through an observe, plan, act, and verify workflow, keeping seeing and acting distinct.
+
+## 🚀 Get started
+
+### Requirements
+
+- Windows 10 or later
+- Node.js 18 or later and npm (Node.js 22.6+ is required for `npm run test:tree`)
+- A vision-capable model from a provider you can access; local OpenAI-compatible models are supported too
+
+### 👩‍💻 Run from source
+
+```powershell
+git clone https://github.com/ArashMaghsoodi/Buddy.git
+cd Buddy
+npm ci
 npm run dev
 ```
 
-`npm run dev` starts Electron with hot-reload for the renderer. On first
-launch:
+`npm run dev` launches the desktop app with renderer hot reload. The first time you open Buddy:
 
-1. Open **Settings** and pick an AI provider (OpenAI, Anthropic, Google, or
-   a local OpenAI-compatible endpoint like LM Studio/Ollama), then paste in
-   an API key (skip this for a local endpoint).
-2. Press the default hotkey **Alt+Shift+Space** anywhere on your desktop —
-   the floating companion appears and captures your screen.
-3. Ask it something: *"What am I looking at?"*
+1. Open **Settings** and choose an AI provider.
+2. Add the provider's API key if required, fetch available models, and choose a vision-capable model.
+3. In the chat composer, choose what Buddy should capture, or turn capture off for a text-only question.
+4. Ask something like *"What is this chart showing?"* or *"Can you explain this error?"*
 
-Default hotkeys (configurable in Settings → General):
+Press **Enter** to send a message or **Shift+Enter** to add a line break. Use `Alt+Space` to open or focus the companion, or `Alt+Shift+Space` to capture and open it.
 
-| Action | Default |
-|---|---|
-| Open/focus companion | `Alt+Space` |
-| Capture screen + open companion | `Alt+Shift+Space` |
+## 🧪 Build and test
 
-## Building a Windows installer
+```powershell
+npm run typecheck
+npm run test:tree
+npm run build
+```
 
-```bash
+To create a Windows installer:
+
+```powershell
 npm run build:win
 ```
 
-Produces an NSIS installer under `release/` via `electron-builder`. You'll
-likely want to add a real app icon at `resources/icon.ico` and reference it
-from the `build.win.icon` field in `package.json` before shipping.
+The NSIS installer is written to `dist/Buddy Setup <version>.exe` (for example, `dist/Buddy Setup 0.1.0.exe`). Upload that `.exe` to a GitHub Release. The installer is currently unsigned, so Windows may show a security warning when it is opened.
 
-## Project layout
+## 🤝 Contributing
 
-```
-src/
-  main/            Electron main process
-    providers/     Vision-AI provider abstraction (OpenAI/Anthropic/Google/local)
-    store.ts        Local settings + conversation persistence
-    contextManager.ts   In-memory "the screen is context" state
-    screenCapture.ts     desktopCapturer-based screen/window capture
-    hotkeys.ts       Global shortcut registration
-    windows.ts       Main window + floating companion window creation
-    ipcHandlers.ts    Wires renderer requests to the above
-    index.ts          App bootstrap, tray icon
-  preload/          contextBridge-exposed, narrowly-typed IPC surface
-  renderer/         React UI — main window (index.html) + companion (companion.html)
-  shared/           Types shared by all three layers (AppSettings, Conversation, …)
-```
+Buddy is currently a solo project, and I’m not accepting outside contributions or pull requests. I may revisit this as the app matures and reaches future milestones. Thanks for understanding and following along.
 
-## What's implemented (MVP) vs. what's next
+## 📄 License
 
-**Implemented:**
-- Electron app with polished dark UI, main (maximized) window + a dual-mode
-  floating companion: an always-on-top FAB that expands into a compact chat
-  overlay and collapses back with one click. Both share the same
-  conversation history/state (same local store, live-synced over IPC).
-- Global hotkeys (configurable), with a click-to-record hotkey field in
-  Settings (live key capture, confirm with ✓, cancel with Esc)
-- Full-screen and active-window capture (multi-monitor aware via Electron's
-  `screen` module)
-- Provider-agnostic vision chat (OpenAI, Anthropic, Google Gemini, and any
-  OpenAI-compatible local endpoint)
-- Persistent visual context per conversation, so follow-ups ("why?", "what
-  about k?") stay grounded in the last screenshot without re-capturing
-- Local conversation history: create, rename (via title-on-first-message),
-  delete, search, continue
-- Settings: hotkeys, capture mode, provider/model/API key, privacy
-  (screenshot/conversation retention, cloud-processing toggle), appearance
-- Graceful error handling surfaced as an inline chat message, never a
-  frozen UI
+There is no `LICENSE` file in the repository yet. Until a license is added, the project is not licensed for reuse; please open an issue before redistributing or incorporating its code.
 
-**Deliberately deferred** (per the phased plan in the project brief — these
-don't block the core experience and are the natural next milestones):
-- Region-selection capture UI (currently falls back to full display)
-- OCR pipeline (the provider layer already accepts `ocrText` — wiring in an
-  OCR engine, e.g. Tesseract, is additive and doesn't touch anything else)
-- Screen annotation / pointer overlay
-- Screen-change detection / throttled proactive mode
-- Voice input/output
-- Computer-use ("click that button") actions
-- Windows code signing / auto-update
+## 🧰 Built with
 
-Everything above was designed so those slot in without restructuring: the
-provider interface, context manager, and IPC layer are already
-shaped for them.
+Buddy is built with Electron, electron-vite, React, and TypeScript, with provider-specific integrations kept behind a shared vision-provider interface.
+
+## 👀 Take a look
+
+Download Buddy from [GitHub Releases](https://github.com/ArashMaghsoodi/Buddy/releases), connect a vision-capable model, and ask what it sees. If you try it, share what worked well and what you would like Buddy to understand next.

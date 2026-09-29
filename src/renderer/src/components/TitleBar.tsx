@@ -45,7 +45,8 @@ export default function TitleBar(): JSX.Element {
       <button
         type="button"
         className={`titlebar-companion-btn ${companionOpen ? 'active' : ''}`}
-        title={companionOpen ? 'Collapse companion' : 'Open companion'}
+        data-tooltip={companionOpen ? 'Collapse companion' : 'Open companion'}
+        data-tooltip-placement="below-end"
         aria-label={companionOpen ? 'Collapse companion' : 'Open companion'}
         aria-pressed={companionOpen}
         onClick={() => void toggleCompanion()}

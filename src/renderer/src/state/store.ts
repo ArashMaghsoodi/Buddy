@@ -60,6 +60,7 @@ export const useBuddyStore = create<BuddyState>((set, get) => ({
     })
 
     buddy().onStatus((status) => set({ status: status as AppStatus }))
+    buddy().settings.onUpdated((settings) => set({ settings }))
     buddy().onConversationUpdated((conv) => {
       set((state) => {
         const others = state.conversations.filter((c) => c.id !== conv.id)

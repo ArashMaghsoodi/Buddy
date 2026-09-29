@@ -6,3 +6,5 @@ release/
 .DS_Store
 .env
 Buddy.zip
+.claude/
+.opencode/

@@ -30,7 +30,8 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
       <div className="sidebar-search-row">
         <button
           className="sidebar-new-btn"
-          title="New conversation"
+          data-tooltip="New conversation"
+          data-tooltip-placement="below-start"
           aria-label="New conversation"
           onClick={async () => {
             await newConversation()
@@ -74,7 +75,8 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
                   selectConversation(c.id)
                   onChangeView('tree')
                 }}
-                title="Open conversation tree"
+                data-tooltip="Open conversation tree"
+                data-tooltip-placement="above-end"
                 aria-label="Open conversation tree"
               >
                 <GitFork size={13} />
@@ -85,7 +87,9 @@ export default function Sidebar({ view, onChangeView }: Props): JSX.Element {
                   e.stopPropagation()
                   deleteConversation(c.id)
                 }}
-                title="Delete conversation"
+                data-tooltip="Delete conversation"
+                data-tooltip-placement="above-end"
+                aria-label="Delete conversation"
               >
                 <Trash size={13} />
               </button>

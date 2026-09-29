@@ -5,7 +5,7 @@ import { Loader2, Send, Square } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import CapturePicker from './CapturePicker'
 import { getActivePath, getSiblings } from '@shared/conversationTree'
-import { shouldHideEmptyAssistantMessage, shouldShowStatusBubble } from '@shared/messageUi'
+import { isRequestBusy, shouldHideEmptyAssistantMessage, shouldShowStatusBubble } from '@shared/messageUi'
 
 const EXAMPLE_PROMPTS = [
   'What am I looking at?',
@@ -58,7 +58,7 @@ export default function ChatView(): JSX.Element {
 
   const conversation = conversations.find((c) => c.id === activeConversationId)
   const activePath = conversation ? getActivePath(conversation) : []
-  const busy = requestActive
+  const busy = isRequestBusy(status, requestActive)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -155,7 +155,9 @@ export default function ChatView(): JSX.Element {
           <button
             className={`composer-btn primary ${busy ? 'cancel-btn' : ''}`}
             disabled={busy ? cancelRequested : !input.trim()}
-            title={busy ? 'Cancel response' : 'Send message'}
+            data-tooltip={busy ? 'Cancel response' : 'Send message'}
+            data-tooltip-placement="above-end"
+            aria-label={busy ? 'Cancel response' : 'Send message'}
             onClick={busy ? handleCancel : handleSend}
           >
             {busy ? (cancelRequested ? <Loader2 size={15} className="spin" /> : <Square size={13} />) : <Send size={15} />}

@@ -108,7 +108,8 @@ export default function MessageBubble({
           <button
             className="msg-image-preview"
             type="button"
-            title="View screenshot fullscreen"
+            data-tooltip="View screenshot fullscreen"
+            data-tooltip-placement="above-start"
             aria-label="View screenshot fullscreen"
             onClick={() => setImageOpen(true)}
           >
@@ -146,13 +147,14 @@ export default function MessageBubble({
             className={`msg-actions msg-edit-actions ${actionsAlign === 'right' ? 'align-right' : 'align-left'}`}
             style={actionStyle}
           >
-            <button type="button" className="msg-action" title="Cancel edit" onClick={() => setEditing(false)}>
+            <button type="button" className="msg-action" data-tooltip="Cancel edit" aria-label="Cancel edit" onClick={() => setEditing(false)}>
               <X size={14} />
             </button>
             <button
               type="button"
               className="msg-action"
-              title="Submit edited message as a new branch"
+              data-tooltip="Submit edited message as a new branch"
+              aria-label="Submit edited message as a new branch"
               disabled={!editContent.trim() || editContent === message.content}
               onClick={() => {
                 onEdit?.(message.id, editContent.trim())
@@ -174,7 +176,7 @@ export default function MessageBubble({
                 <button
                   type="button"
                   className="msg-action"
-                  title="Previous alternative"
+                  data-tooltip="Previous alternative"
                   aria-label="Previous alternative"
                   disabled={siblingIndex === 0}
                   onClick={() => onSelectSibling?.(message.id, -1)}
@@ -185,7 +187,7 @@ export default function MessageBubble({
                 <button
                   type="button"
                   className="msg-action"
-                  title="Next alternative"
+                  data-tooltip="Next alternative"
                   aria-label="Next alternative"
                   disabled={siblingIndex === siblingCount - 1}
                   onClick={() => onSelectSibling?.(message.id, 1)}
@@ -197,7 +199,7 @@ export default function MessageBubble({
             <button
               type="button"
               className={`msg-action ${copied ? 'copied' : ''}`}
-              title={copied ? 'Copied' : 'Copy message text'}
+              data-tooltip={copied ? 'Copied' : 'Copy message text'}
               aria-label="Copy message text"
               onClick={() => void handleCopy()}
             >
@@ -207,7 +209,7 @@ export default function MessageBubble({
               <button
                 type="button"
                 className="msg-action"
-                title="Edit message"
+                data-tooltip="Edit message"
                 aria-label="Edit message"
                 onClick={() => {
                   setEditContent(message.content)
@@ -221,7 +223,7 @@ export default function MessageBubble({
               <button
                 type="button"
                 className="msg-action"
-                title="Regenerate response as a new branch"
+                data-tooltip="Regenerate response as a new branch"
                 aria-label="Regenerate response"
                 onClick={() => onRegenerate(message.id)}
               >
@@ -232,7 +234,7 @@ export default function MessageBubble({
               <button
                 type="button"
                 className="msg-action"
-                title="Branch from here"
+                data-tooltip="Branch from here"
                 aria-label="Branch from here"
                 onClick={() => onBranchFromHere(message.id)}
               >
@@ -255,7 +257,8 @@ export default function MessageBubble({
             <button
               className="image-lightbox-close"
               type="button"
-              title="Close fullscreen preview"
+              data-tooltip="Close fullscreen preview"
+              data-tooltip-placement="below-end"
               aria-label="Close fullscreen preview"
               onClick={() => setImageOpen(false)}
             >

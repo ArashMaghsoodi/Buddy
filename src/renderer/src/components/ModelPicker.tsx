@@ -92,12 +92,12 @@ export default function ModelPicker({ value, options, loading, error, onChange, 
             }}
           />
           {selectedModel && (
-            <span className="model-capabilities" title="Model capabilities">
+            <span className="model-capabilities" data-tooltip="Model capabilities" data-tooltip-placement="above-end" aria-label="Model capabilities" tabIndex={0}>
               {capabilityLabel(selectedModel)}
             </span>
           )}
         </div>
-        <button className="fetch-btn" onClick={onFetch} disabled={loading} title="Fetch available models">
+        <button className="fetch-btn" onClick={onFetch} disabled={loading} data-tooltip="Fetch available models" data-tooltip-placement="above-end" aria-label="Fetch available models">
           {loading ? '…' : 'Fetch'}
         </button>
       </div>
@@ -115,7 +115,7 @@ export default function ModelPicker({ value, options, loading, error, onChange, 
               }}
             >
               <span>{m.id}</span>
-              <span className="model-capabilities" title="Model capabilities">
+              <span className="model-capabilities" data-tooltip="Model capabilities" data-tooltip-placement="above-end" aria-label="Model capabilities" tabIndex={0}>
                 {capabilityLabel(m)}
               </span>
             </div>

@@ -214,7 +214,8 @@ export default function CapturePicker(): JSX.Element {
       <button
         type="button"
         className={`composer-btn toggle capture-picker-btn ${captureEnabled ? 'on' : ''}`}
-        title={label}
+        data-tooltip={label}
+        data-tooltip-placement="above-end"
         onClick={() => {
           if (open) closePopover()
           else void openPopover()

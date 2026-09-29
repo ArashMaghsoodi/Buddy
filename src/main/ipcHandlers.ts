@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, screen } from 'electron'
 import { nanoid } from 'nanoid'
 import type {
+  AppSettings,
   AskPayload,
   ChatMessage,
   Conversation,
@@ -65,6 +66,12 @@ function broadcastConversationUpdated(conversation: Conversation): void {
   }
 }
 
+function broadcastSettingsUpdated(settings: AppSettings): void {
+  for (const win of [getMainWindow(), getCompanionWindow()]) {
+    win?.webContents.send('buddy:settings-updated', settings)
+  }
+}
+
 let activeRequest: { controller: AbortController; cancelled: boolean; onCancel?: () => void } | null = null
 
 export function registerIpcHandlers(): void {
@@ -74,6 +81,7 @@ export function registerIpcHandlers(): void {
     const saved = saveSettings(settings)
     setCompanionAlwaysOnTop(saved.appearance.companionAlwaysOnTop)
     registerHotkeys(saved)
+    broadcastSettingsUpdated(saved)
     return saved
   })
 

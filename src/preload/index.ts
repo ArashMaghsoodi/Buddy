@@ -7,7 +7,14 @@ import type { AppSettings, AskPayload, CompanionState, Conversation, MonitorInfo
 const api = {
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
-    save: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke('settings:save', settings)
+    save: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke('settings:save', settings),
+    onUpdated: (cb: (settings: AppSettings) => void) => {
+      const listener = (_e: unknown, settings: AppSettings) => cb(settings)
+      ipcRenderer.on('buddy:settings-updated', listener)
+      return () => {
+        ipcRenderer.removeListener('buddy:settings-updated', listener)
+      }
+    }
   },
   conversations: {
     list: (): Promise<Conversation[]> => ipcRenderer.invoke('conversations:list'),
